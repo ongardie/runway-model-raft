@@ -1,0 +1,228 @@
+type Index : 0..9;
+type Term : 0..9;
+type ServerId : 1..5;
+
+type Entry : record {
+  term: Term,
+  // value omitted
+};
+
+type Log : OrderedSet<Entry>[Index];
+
+type CandidatePeer : record {
+  voteResponded: Boolean,
+  voteGranted: Boolean,
+};
+
+type LeaderPeer : record {
+  nextIndex: Index,
+  matchIndex: Index,
+};
+
+type Server : record {
+  currentTerm: Term,
+  state: either {
+    Follower {
+      vote: either {
+        Available,
+        Granted { to: ServerId },
+        Unavailable,
+      },
+    },
+    Candidate {
+      peers: Array<CandidatePeer>[ServerId],
+    },
+    Leader {
+      peers: Array<LeaderPeer>[ServerId],
+    },
+  },
+  log: Log,
+  commitIndex: Index,
+};
+
+var servers: Array<Server>[ServerId];
+
+type Message : record {
+  from: ServerId,
+  to: ServerId,
+  payload: either {
+    RequestVoteRequest {
+      term: Term,
+      lastLogTerm: Term,
+      lastLogIndex: Index,
+    },
+    RequestVoteResponse {
+      term: Term,
+      granted: Boolean,
+    },
+  },
+};
+
+var network : Set<Message>[0..99];
+
+function lastTerm(log: Log) -> Term {
+  if empty(log) {
+    return 0;
+  } else {
+    return log[size(log)].term;
+  }
+}
+
+function quorum(serverSet: Set<ServerId>[ServerId]) -> Boolean {
+  return size(serverSet) * 2 > size(servers);
+}
+
+rule restart for server in servers {
+  // just meant to remember the term, log, and vote
+  server.state = Follower {
+    // TODO: hmm, shouldn't be forgetting vote, but unavailable is close enough
+    vote: Unavailable,
+  };
+  server.commitIndex = 0;
+}
+
+rule timeout for server in servers {
+  var doTimeout : Boolean;
+  match server.state {
+    Follower  => { doTimeout = True; },
+    Candidate => { doTimeout = True; },
+    Leader    => { doTimeout = False; }
+  }
+  if doTimeout {
+    server.currentTerm += 1;
+    server.state = Candidate {};
+  }
+}
+
+rule sendRequestVote for serverId, server in servers {
+  match server.state {
+    Follower => { /* do nothing */ },
+    Candidate as cstate => {
+      var notResponded : Set<ServerId>[ServerId];
+      for peerId, peer in cstate.peers {
+        if !peer.voteResponded {
+          push(notResponded, peerId);
+        }
+      }
+      if !empty(notResponded) {
+        var target : ServerId = 
+          notResponded[urandomRange(1, size(notResponded))];
+        push(network, Message {
+          from: serverId,
+          to: target,
+          payload: RequestVoteRequest {
+            term: server.currentTerm,
+            lastLogTerm: lastTerm(server.log),
+            lastLogIndex: size(server.log),
+          },
+        });
+      }
+    },
+    Leader => { /* do nothing */ }
+  }
+}
+
+rule becomeLeader for serverId, server in servers {
+  match server.state {
+    Follower => { /* do nothing */ },
+    Candidate as cstate => {
+      var granted : Set<ServerId>[ServerId];
+      for peerId, peer in cstate.peers {
+        if peer.voteGranted {
+          push(granted, peerId);
+        }
+      }
+      if quorum(granted) {
+        var peers : Array<LeaderPeer>[ServerId];
+        for p in peers {
+          p.nextIndex = 1;
+          p.matchIndex = 0;
+        }
+        server.state = Leader {
+          peers: peers,
+        };
+      }
+    },
+    Leader => { /* do nothing */ }
+  }
+}
+
+
+
+//rule sendAppendEntries for serverId, server in servers {
+//}
+//rule clientRequest for serverId, server in servers {
+//}
+//rule advanceCommitIndex for serverId, server in servers {
+//}
+
+rule handleMessage for message in network {
+  var from : ServerId = message.from;
+  var to : ServerId = message.to;
+  match message.payload {
+    RequestVoteRequest as request => {
+      if request.term > servers[to].currentTerm {
+        servers[to].currentTerm = request.term;
+        servers[to].state = Follower {};
+      } else {
+        // check that vote is available and if so, record vote
+        var granted : Boolean = False;
+        if (request.term == servers[to].currentTerm &&
+            (request.lastLogTerm > lastTerm(servers[to].log) ||
+             (request.lastLogTerm == lastTerm(servers[to].log) &&
+              request.lastLogIndex >= size(servers[to].log)))) {
+          match servers[to].state {
+            Follower as fstate => {
+              match fstate.vote {
+                Available => {
+                  fstate.vote = Granted { to: from };
+                  granted = True;
+                },
+                Granted as g => {
+                  granted = (g.to == from);
+                },
+                Unavailable => {},
+              }
+            },
+            Candidate => { granted = (from == to); },
+            Leader    => { granted = (from == to); },
+          }
+        }
+        remove(network, message);
+        push(network, Message {
+          from: to,
+          to: from,
+          payload: RequestVoteResponse {
+            term: servers[to].currentTerm,
+            granted: granted,
+          },
+        });
+      }
+    },
+
+    RequestVoteResponse as reply => {
+      if reply.term > servers[to].currentTerm {
+        servers[to].currentTerm = reply.term;
+        servers[to].state = Follower {};
+      } else {
+        if reply.term == servers[to].currentTerm {
+          match servers[to].state {
+            Follower => {
+              // Must have restarted to get back into Follower state after
+              // requesting votes. Just ignore it.
+            },
+            Candidate as cstate => {
+              cstate.peers[from].voteResponded = True;
+              cstate.peers[from].voteGranted = reply.granted;
+              servers[to].state = cstate;
+            },
+            Leader => { /* ignore */ },
+          }
+        }
+        remove(network, message);
+      }
+    },
+
+  }
+}
+
