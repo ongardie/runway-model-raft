@@ -449,3 +449,12 @@ rule handleMessage for message in network {
   }
 }
 
+rule dropMessage for message in network {
+  remove(network, message);
+}
+
+/*
+rule duplicateMessage for message in network {
+  // TODO: pending MultiSet support in compiler
+}
+*/
