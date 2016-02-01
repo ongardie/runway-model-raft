@@ -1,13 +1,15 @@
-type Index : 0..9;
-type Term : 0..9;
+type MaybeIndex : 0..9;
+type StrictIndex : 1..9;
+type MaybeTerm : 0..9;
+type StrictTerm : 1..9;
 type ServerId : 1..5;
 
 type Entry : record {
-  term: Term,
+  term: StrictTerm,
   // value omitted
 };
 
-type Log : OrderedSet<Entry>[Index];
+type Log : OrderedSet<Entry>[StrictIndex];
 
 type CandidatePeer : record {
   voteResponded: Boolean,
@@ -15,18 +17,17 @@ type CandidatePeer : record {
 };
 
 type LeaderPeer : record {
-  nextIndex: Index,
-  matchIndex: Index,
+  nextIndex: StrictIndex,
+  matchIndex: MaybeIndex,
 };
 
 type Server : record {
-  currentTerm: Term,
+  currentTerm: StrictTerm,
   state: either {
     Follower {
       vote: either {
         Available,
         Granted { to: ServerId },
-        Unavailable,
       },
     },
     Candidate {
@@ -37,7 +38,7 @@ type Server : record {
     },
   },
   log: Log,
-  commitIndex: Index,
+  commitIndex: MaybeIndex,
 };
 
 var servers: Array<Server>[ServerId];
@@ -47,20 +48,32 @@ type Message : record {
   to: ServerId,
   payload: either {
     RequestVoteRequest {
-      term: Term,
-      lastLogTerm: Term,
-      lastLogIndex: Index,
+      term: StrictTerm,
+      lastLogTerm: MaybeTerm,
+      lastLogIndex: MaybeIndex,
     },
     RequestVoteResponse {
-      term: Term,
+      term: StrictTerm,
       granted: Boolean,
+    },
+    AppendEntriesRequest {
+      term: StrictTerm,
+      prevLogIndex: MaybeIndex,
+      prevLogTerm: MaybeTerm,
+      entries: Log,
+      commitIndex: MaybeIndex,
+    },
+    AppendEntriesResponse {
+      term: StrictTerm,
+      success: Boolean,
+      matchIndex: MaybeIndex,
     },
   },
 };
 
 var network : Set<Message>[0..99];
 
-function lastTerm(log: Log) -> Term {
+function lastTerm(log: Log) -> MaybeTerm {
   if empty(log) {
     return 0;
   } else {
@@ -72,16 +85,25 @@ function quorum(serverSet: Set<ServerId>[ServerId]) -> Boolean {
   return size(serverSet) * 2 > size(servers);
 }
 
-rule restart for server in servers {
+rule restart for serverId, server in servers {
   // just meant to remember the term, log, and vote
-  server.state = Follower {
-    // TODO: hmm, shouldn't be forgetting vote, but unavailable is close enough
-    vote: Unavailable,
-  };
+  match server.state {
+    Follower => { /* retain existing vote */ },
+    Candidate => {
+      server.state = Follower {
+        vote: Granted { to: serverId },
+      };
+    },
+    Leader => {
+      server.state = Follower {
+        vote: Granted { to: serverId },
+      };
+    },
+  }
   server.commitIndex = 0;
 }
 
-rule timeout for server in servers {
+rule timeout for serverId, server in servers {
   var doTimeout : Boolean;
   match server.state {
     Follower  => { doTimeout = True; },
@@ -90,7 +112,12 @@ rule timeout for server in servers {
   }
   if doTimeout {
     server.currentTerm += 1;
-    server.state = Candidate {};
+    var peers: Array<CandidatePeer>[ServerId];
+    peers[serverId] = CandidatePeer {
+      voteResponded: True,
+      voteGranted: True,
+    };
+    server.state = Candidate { peers: peers };
   }
 }
 
@@ -105,7 +132,7 @@ rule sendRequestVote for serverId, server in servers {
         }
       }
       if !empty(notResponded) {
-        var target : ServerId = 
+        var target : ServerId =
           notResponded[urandomRange(1, size(notResponded))];
         push(network, Message {
           from: serverId,
@@ -134,10 +161,8 @@ rule becomeLeader for serverId, server in servers {
       }
       if quorum(granted) {
         var peers : Array<LeaderPeer>[ServerId];
-        for p in peers {
-          p.nextIndex = 1;
-          p.matchIndex = 0;
-        }
+        peers[serverId].matchIndex = size(server.log);
+        peers[serverId].nextIndex = size(server.log) + 1;
         server.state = Leader {
           peers: peers,
         };
@@ -147,14 +172,90 @@ rule becomeLeader for serverId, server in servers {
   }
 }
 
+rule sendAppendEntries for serverId, server in servers {
+  if size(servers) > 1 {
+    match server.state {
+      Follower => { /* do nothing */ },
+      Candidate => { /* do nothing */ },
+      Leader as lstate => {
+        var peerId : ServerId = serverId;
+        while peerId == serverId {
+          peerId = urandom<ServerId>();
+        }
+        var prevLogIndex : MaybeIndex = lstate.peers[peerId].nextIndex - 1;
+        var prevLogTerm : MaybeTerm = 0;
+        if prevLogIndex > 0 {
+          prevLogTerm = server.log[prevLogIndex].term;
+        }
+        var entries : Log;
+        var index : StrictIndex = prevLogIndex + 1;
+        var limit : MaybeIndex = 2;
+        while index <= size(server.log) && limit > 0 {
+          push(entries, server.log[index]);
+          index += 1;
+          limit -= 1;
+        }
+        var commitIndex : MaybeIndex = server.commitIndex;
+        if server.commitIndex > index {
+          commitIndex = index;
+        }
+        push(network, Message {
+          from: serverId,
+          to: peerId,
+          payload: AppendEntriesRequest {
+            term: server.currentTerm,
+            prevLogIndex: prevLogIndex,
+            prevLogTerm: prevLogTerm,
+            entries: entries,
+            commitIndex: commitIndex,
+          },
+        });
+      }
+    }
+  }
+}
 
+rule clientRequest for serverId, server in servers {
+  match server.state {
+    Follower => { /* redirect client */},
+    Candidate => { /* redirect client */ },
+    Leader as lstate => {
+      push(server.log, Entry {
+        term: server.currentTerm,
+        // value: to client-provided command
+      });
+      lstate.peers[serverId].nextIndex += 1;
+      lstate.peers[serverId].matchIndex += 1;
+      server.state = lstate;
+    },
+  }
+}
 
-//rule sendAppendEntries for serverId, server in servers {
-//}
-//rule clientRequest for serverId, server in servers {
-//}
-//rule advanceCommitIndex for serverId, server in servers {
-//}
+rule advanceCommitIndex for serverId, server in servers {
+  match server.state {
+    Follower => { /* do nothing */},
+    Candidate => { /* do nothing */ },
+    Leader as lstate => {
+      var quorumMatchIndex : MaybeIndex = 0;
+      for peerId, peer in lstate.peers {
+        // The set of servers with match index >= peer.matchIndex.
+        var geq : Set<ServerId>[ServerId];
+        for p2Id, p2 in lstate.peers {
+          if p2.matchIndex >= peer.matchIndex {
+            push(geq, p2Id);
+          }
+        }
+        if quorum(geq) && peer.matchIndex > quorumMatchIndex {
+          quorumMatchIndex = peer.matchIndex;
+        }
+      }
+      if (quorumMatchIndex > 0 &&
+          server.log[quorumMatchIndex].term == server.currentTerm) {
+        server.commitIndex = quorumMatchIndex;
+      }
+    },
+  }
+}
 
 rule handleMessage for message in network {
   var from : ServerId = message.from;
@@ -164,6 +265,7 @@ rule handleMessage for message in network {
       if request.term > servers[to].currentTerm {
         servers[to].currentTerm = request.term;
         servers[to].state = Follower {};
+        // leave request in network for further processing
       } else {
         // check that vote is available and if so, record vote
         var granted : Boolean = False;
@@ -175,13 +277,13 @@ rule handleMessage for message in network {
             Follower as fstate => {
               match fstate.vote {
                 Available => {
-                  fstate.vote = Granted { to: from };
                   granted = True;
+                  fstate.vote = Granted { to: from };
+                  servers[to].state = fstate;
                 },
                 Granted as g => {
                   granted = (g.to == from);
                 },
-                Unavailable => {},
               }
             },
             Candidate => { granted = (from == to); },
@@ -198,31 +300,152 @@ rule handleMessage for message in network {
           },
         });
       }
-    },
+    }, // RequestVoteRequest
 
     RequestVoteResponse as reply => {
-      if reply.term > servers[to].currentTerm {
-        servers[to].currentTerm = reply.term;
-        servers[to].state = Follower {};
+      if reply.term == servers[to].currentTerm {
+        match servers[to].state {
+          Follower => {
+            // Must have restarted to get back into Follower state after
+            // requesting votes. Just ignore it.
+          },
+          Candidate as cstate => {
+            cstate.peers[from].voteResponded = True;
+            cstate.peers[from].voteGranted = reply.granted;
+            servers[to].state = cstate;
+          },
+          Leader => { /* ignore */ },
+        }
       } else {
-        if reply.term == servers[to].currentTerm {
+        if reply.term > servers[to].currentTerm {
+          servers[to].currentTerm = reply.term;
+          servers[to].state = Follower {};
+        } else {
+          // stale term: ignore
+        }
+      }
+      remove(network, message);
+    }, // RequestVoteResponse
+
+    AppendEntriesRequest as request => {
+      if request.term > servers[to].currentTerm {
+        servers[to].currentTerm = request.term;
+        servers[to].state = Follower {};
+        // leave request in network for further processing
+      } else {
+        var rejectReply : Message = Message {
+          from: to,
+          to: from,
+          payload: AppendEntriesResponse {
+            term: servers[to].currentTerm,
+            success: False,
+            matchIndex: 0,
+          },
+        };
+        if request.term < servers[to].currentTerm {
+          remove(network, message);
+          push(network, rejectReply);
+        } else { // request.term == servers[to].currentTerm
           match servers[to].state {
             Follower => {
-              // Must have restarted to get back into Follower state after
-              // requesting votes. Just ignore it.
+              var logOk : Boolean = (
+                request.prevLogIndex == 0 ||
+                  (request.prevLogIndex <= size(servers[to].log) &&
+                   request.prevLogTerm ==
+                    servers[to].log[request.prevLogIndex].term));
+              if logOk {
+                var done : Boolean = True;
+                var index : MaybeIndex = request.prevLogIndex;
+                for entry in request.entries {
+                  index += 1;
+                  if index <= size(servers[to].log) {
+                    if servers[to].log[index].term == entry.term {
+                      // already have this entry
+                      continue;
+                    } else {
+                      // terms conflict at 'index': remove last entry in
+                      // server's log
+                      var lastIndex : StrictIndex = size(servers[to].log);
+                      remove(servers[to].log, servers[to].log[lastIndex]);
+                      // leave request in network for further processing
+                      done = False;
+                      break;
+                    }
+                  } else { // new entry
+                    push(servers[to].log, entry);
+                    assert index == size(servers[to].log);
+                    // leave request in network for further processing
+                    done = False;
+                    break;
+                  }
+                }
+                if done {
+                  servers[to].commitIndex = request.commitIndex;
+                  remove(network, message);
+                  push(network, Message {
+                    from: to,
+                    to: from,
+                    payload: AppendEntriesResponse {
+                      term: servers[to].currentTerm,
+                      success: True,
+                      matchIndex: request.prevLogIndex + size(request.entries),
+                    },
+                  });
+                } else {
+                  // leave request in network for further processing
+                }
+              } else {
+                remove(network, message);
+                push(network, rejectReply);
+              }
             },
-            Candidate as cstate => {
-              cstate.peers[from].voteResponded = True;
-              cstate.peers[from].voteGranted = reply.granted;
-              servers[to].state = cstate;
+            Candidate => {
+              servers[to].state = Follower {
+                vote: Granted { to: to },
+              };
+              // leave request in network for further processing
             },
-            Leader => { /* ignore */ },
+            Leader => {
+              assert False;
+            },
           }
         }
-        remove(network, message);
       }
-    },
+    }, // AppendEntriesRequest
 
+    AppendEntriesResponse as reply => {
+      if reply.term == servers[to].currentTerm {
+        match servers[to].state {
+          Follower => {
+            // Must have restarted to get back into Follower state after
+            // AppendEntries. Just ignore it.
+          },
+          Candidate => {
+            // Must have restarted to get back into Candidate state after
+            // AppendEntries. Just ignore it.
+          },
+          Leader as lstate => {
+            if reply.success {
+              lstate.peers[from].nextIndex = reply.matchIndex + 1;
+              lstate.peers[from].matchIndex = reply.matchIndex;
+              servers[to].state = lstate;
+            } else {
+              if lstate.peers[from].nextIndex > 1 {
+                lstate.peers[from].nextIndex -= 1;
+              }
+            }
+          },
+        }
+      } else {
+        if reply.term > servers[to].currentTerm {
+          servers[to].currentTerm = reply.term;
+          servers[to].state = Follower {};
+        } else {
+          // stale term: ignore
+        }
+      }
+      remove(network, message);
+    }, // AppendEntriesResponse
   }
 }
 
