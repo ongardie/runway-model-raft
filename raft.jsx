@@ -30,7 +30,7 @@ let tooltip = new Tooltip(jQuery('#tooltip'));
 
 let numServers = 5;
 let numIndexes = 9;
-let ring = new Circle(25, 50, 20);
+let ring = new Circle(250, 500, 200);
 
 let Server = React.createClass({
   render: function() {
@@ -46,22 +46,22 @@ let Server = React.createClass({
     let votes = [];
     serverVar.lookup('state').match({
       Candidate: cstate => {
-        let peersCircle = new Circle(point.x, point.y, 8);
+        let peersCircle = new Circle(point.x, point.y, 40);
         cstate.peers.forEach((peer, peerId) => {
           let peerPoint = peersCircle.at((peerId - 1) / numServers);
           let granted = (peer.lookup('voteGranted').toString() == 'True');
           votes.push(<circle
             key={peerId}
-            cx={peerPoint.x} cy={peerPoint.y} r={1}
+            cx={peerPoint.x} cy={peerPoint.y} r={5}
             style={{fill: granted ? 'black' : 'white'}} />);
         });
       },
     });
     return <g>
-        <circle cx={point.x} cy={point.y} r={5}
+        <circle cx={point.x} cy={point.y} r={50}
           style={{fill: fill, stroke: 'black'}} />
-        <text x={point.x} y={point.y + 3}
-          style={{textAnchor: 'middle', fontSize: 8}}>
+        <text x={point.x} y={point.y + 30}
+          style={{textAnchor: 'middle', fontSize: 80}}>
           {serverVar.lookup('currentTerm').toString()}
         </text>
         {votes}
@@ -78,7 +78,7 @@ let Message = React.createClass({
       x: fromPoint.x + (toPoint.x - fromPoint.x) * .7,
       y: fromPoint.y + (toPoint.y - fromPoint.y) * .7,
     };
-    return <circle cx={point.x} cy={point.y} r={3} />;
+    return <circle cx={point.x} cy={point.y} r={15} />;
   },
 });
 
@@ -113,8 +113,8 @@ let LogView = React.createClass({
           let entryVar = logVar.index(i);
           let committed = (i <= commitIndex);
           return <td key={i} style={{
-              border: 1,
-              borderStyle: committed ? 'solid' : 'dotted',
+              border: 8,
+              borderStyle: committed ? 'solid' : 'dashed',
             }}>
               {entryVar.lookup('term').toString()}
           </td>;
@@ -129,8 +129,8 @@ let LogView = React.createClass({
       </tr>;
     });
     return <g>
-        <foreignObject x={50} y={0} width={50} height={100}>
-          <table style={{fontSize: 6}}>
+        <foreignObject x={550} y={0} width={450} height={1000}>
+          <table style={{fontSize: 80}}>
             <tbody>
               <tr>
                 <td></td>
@@ -147,7 +147,7 @@ let LogView = React.createClass({
 
 let RaftView = React.createClass({
   render: function() {
-    return <g>
+    return <g style={{strokeWidth: 5}}>
       <RingView />
       <LogView />
     </g>;
@@ -157,6 +157,7 @@ let RaftView = React.createClass({
 let reactComponent = ReactDOM.render(<RaftView />, svg);
 
 return {
+  bigView: true,
   update: function() {
     // trigger a render
     reactComponent.setState({}, () => {
