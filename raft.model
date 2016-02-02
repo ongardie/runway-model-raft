@@ -1,7 +1,10 @@
 type MaybeIndex : 0..9;
 type StrictIndex : 1..9;
+type NextIndex : 1..10;
+
 type MaybeTerm : 0..9;
 type StrictTerm : 1..9;
+
 type ServerId : 1..5;
 
 type Entry : record {
@@ -9,7 +12,7 @@ type Entry : record {
   // value omitted
 };
 
-type Log : OrderedSet<Entry>[StrictIndex];
+type Log : Vector<Entry>[StrictIndex];
 
 type CandidatePeer : record {
   voteResponded: Boolean,
@@ -17,7 +20,7 @@ type CandidatePeer : record {
 };
 
 type LeaderPeer : record {
-  nextIndex: StrictIndex,
+  nextIndex: NextIndex,
   matchIndex: MaybeIndex,
 };
 
@@ -71,7 +74,24 @@ type Message : record {
   },
 };
 
-var network : Set<Message>[0..99];
+var network : MultiSet<Message>[0..2];
+
+////////// History Variables //////////
+
+// Used to check election safety property.
+type ElectionResult : either {
+  NoWinner,
+  Winner { won: ServerId }
+};
+var electionHistory : Array<ElectionResult>[StrictTerm];
+
+// Used to check leader completeness property
+type CommittedEntry : record {
+  entry: Entry,
+  termCommitted: StrictTerm,
+};
+var committedEntries : Vector<CommittedEntry>[StrictIndex];
+
 
 function lastTerm(log: Log) -> MaybeTerm {
   if empty(log) {
@@ -110,7 +130,7 @@ rule timeout for serverId, server in servers {
     Candidate => { doTimeout = True; },
     Leader    => { doTimeout = False; }
   }
-  if doTimeout {
+  if doTimeout && server.currentTerm < 9 /* max term */ {
     server.currentTerm += 1;
     var peers: Array<CandidatePeer>[ServerId];
     peers[serverId] = CandidatePeer {
@@ -122,30 +142,32 @@ rule timeout for serverId, server in servers {
 }
 
 rule sendRequestVote for serverId, server in servers {
-  match server.state {
-    Follower => { /* do nothing */ },
-    Candidate as cstate => {
-      var notResponded : Set<ServerId>[ServerId];
-      for peerId, peer in cstate.peers {
-        if !peer.voteResponded {
-          push(notResponded, peerId);
+  if !full(network) {
+    match server.state {
+      Follower => { /* do nothing */ },
+      Candidate as cstate => {
+        var notResponded : Set<ServerId>[ServerId];
+        for peerId, peer in cstate.peers {
+          if !peer.voteResponded {
+            push(notResponded, peerId);
+          }
         }
-      }
-      if !empty(notResponded) {
-        var target : ServerId =
-          notResponded[urandomRange(1, size(notResponded))];
-        push(network, Message {
-          from: serverId,
-          to: target,
-          payload: RequestVoteRequest {
-            term: server.currentTerm,
-            lastLogTerm: lastTerm(server.log),
-            lastLogIndex: size(server.log),
-          },
-        });
-      }
-    },
-    Leader => { /* do nothing */ }
+        if !empty(notResponded) {
+          var target : ServerId =
+            notResponded[urandomRange(1, size(notResponded))];
+          push(network, Message {
+            from: serverId,
+            to: target,
+            payload: RequestVoteRequest {
+              term: server.currentTerm,
+              lastLogTerm: lastTerm(server.log),
+              lastLogIndex: size(server.log),
+            },
+          });
+        }
+      },
+      Leader => { /* do nothing */ }
+    }
   }
 }
 
@@ -166,6 +188,8 @@ rule becomeLeader for serverId, server in servers {
         server.state = Leader {
           peers: peers,
         };
+        assert electionHistory[server.currentTerm] == NoWinner;
+        electionHistory[server.currentTerm] = Winner { won: serverId };
       }
     },
     Leader => { /* do nothing */ }
@@ -173,7 +197,7 @@ rule becomeLeader for serverId, server in servers {
 }
 
 rule sendAppendEntries for serverId, server in servers {
-  if size(servers) > 1 {
+  if !full(network) && size(servers) > 1 {
     match server.state {
       Follower => { /* do nothing */ },
       Candidate => { /* do nothing */ },
@@ -188,8 +212,8 @@ rule sendAppendEntries for serverId, server in servers {
           prevLogTerm = server.log[prevLogIndex].term;
         }
         var entries : Log;
-        var index : StrictIndex = prevLogIndex + 1;
-        var limit : MaybeIndex = 2;
+        var index : NextIndex = prevLogIndex + 1;
+        var limit : MaybeIndex = 1;
         while index <= size(server.log) && limit > 0 {
           push(entries, server.log[index]);
           index += 1;
@@ -216,18 +240,20 @@ rule sendAppendEntries for serverId, server in servers {
 }
 
 rule clientRequest for serverId, server in servers {
-  match server.state {
-    Follower => { /* redirect client */},
-    Candidate => { /* redirect client */ },
-    Leader as lstate => {
-      push(server.log, Entry {
-        term: server.currentTerm,
-        // value: to client-provided command
-      });
-      lstate.peers[serverId].nextIndex += 1;
-      lstate.peers[serverId].matchIndex += 1;
-      server.state = lstate;
-    },
+  if !full(server.log) {
+    match server.state {
+      Follower => { /* redirect client */},
+      Candidate => { /* redirect client */ },
+      Leader as lstate => {
+        push(server.log, Entry {
+          term: server.currentTerm,
+          // value: to client-provided command
+        });
+        lstate.peers[serverId].nextIndex += 1;
+        lstate.peers[serverId].matchIndex += 1;
+        server.state = lstate;
+      },
+    }
   }
 }
 
@@ -251,10 +277,29 @@ rule advanceCommitIndex for serverId, server in servers {
       }
       if (quorumMatchIndex > 0 &&
           server.log[quorumMatchIndex].term == server.currentTerm) {
+        // save new commit index
         server.commitIndex = quorumMatchIndex;
+
+        // update committedEntries history variable
+        for index, entry in server.log {
+          if index > server.commitIndex {
+            break;
+          }
+          if index == size(committedEntries) + 1 {
+            push(committedEntries, CommittedEntry {
+              entry: entry,
+              termCommitted: server.currentTerm,
+            });
+          } else {
+            assert committedEntries[index].entry == entry;
+            if committedEntries[index].termCommitted > server.currentTerm {
+              committedEntries[index].termCommitted = server.currentTerm;
+            }
+          }
+        }
       }
-    },
-  }
+    } // Leader
+  } // match
 }
 
 rule handleMessage for message in network {
@@ -453,8 +498,149 @@ rule dropMessage for message in network {
   remove(network, message);
 }
 
-/*
 rule duplicateMessage for message in network {
-  // TODO: pending MultiSet support in compiler
+  if !full(network) {
+    push(network, message);
+  }
 }
-*/
+
+invariant VotesConsistent {
+  for serverId, server in servers {
+    match server.state {
+      Follower => {},
+      Candidate as cstate => {
+        for peerId, peer in cstate.peers {
+          if peerId == serverId {
+            assert peer.voteGranted;
+          }
+          if peer.voteGranted {
+            assert peer.voteResponded;
+            if servers[peerId].currentTerm == server.currentTerm {
+              match servers[peerId].state {
+                Follower as fstate => { 
+                  match fstate.vote {
+                    Available => { assert False; },
+                    Granted as g => { assert g.to == serverId; },
+                  }
+                },
+                Candidate => {
+                  assert peerId == serverId; 
+                },
+                Leader => { assert False; },
+              }
+            }
+          }
+        }
+      },
+      Leader => {},
+    }
+  }
+}
+
+invariant LeaderPeersConsistent {
+  for serverId, server in servers {
+    match server.state {
+      Follower => {},
+      Candidate => {},
+      Leader as lstate => {
+        for peerId, peer in lstate.peers {
+          assert 1 <= peer.nextIndex;
+          assert peer.nextIndex <= size(server.log) + 1;
+          assert 0 <= peer.matchIndex;
+          assert peer.matchIndex <= size(server.log);
+          if servers[peerId].currentTerm == server.currentTerm {
+            assert peer.matchIndex <= size(servers[peerId].log);
+          }
+          if peerId == serverId {
+            assert peer.nextIndex == size(server.log) + 1;
+            assert peer.matchIndex == size(server.log);
+          }
+        }
+      },
+    }
+  }
+}
+
+invariant CommitIndexConsistent {
+  for server in servers {
+    assert server.commitIndex <= size(server.log);
+  }
+}
+
+invariant LogTermsMonotonic {
+  for server in servers {
+    var term : MaybeTerm = 0;
+    for entry in server.log {
+      assert entry.term >= term;
+      term = entry.term;
+    }
+  }
+}
+
+invariant LogTermLeqCurrentTerm {
+  for server in servers {
+    assert lastTerm(server.log) <= server.currentTerm;
+  }
+}
+
+invariant LeaderWonElection {
+  for serverId, server in servers {
+    match server.state {
+      Follower => {},
+      Candidate => {},
+      Leader => {
+        assert (electionHistory[server.currentTerm] ==
+          Winner { won: serverId });
+      }
+    }
+  }
+}
+
+invariant LogMatching {
+  for server1 in servers {
+    for server2 in servers {
+      var index : MaybeIndex = size(server1.log);
+      if size(server2.log) < index {
+        index = size(server2.log);
+      }
+      while index > 0 {
+        if server1.log[index].term == server2.log[index].term {
+          while index > 0 {
+            assert server1.log[index] == server2.log[index];
+            index -= 1;
+          }
+          break;
+        } else {
+          index -= 1;
+        }
+      }
+    }
+  }
+}
+
+invariant LeaderCompleteness {
+  for server in servers {
+    match server.state {
+      Follower => {},
+      Candidate => {},
+      Leader => {
+        for index, centry in committedEntries {
+          if centry.termCommitted <= server.currentTerm {
+            assert server.log[index] == centry.entry;
+          }
+        }
+      }
+    }
+  }
+}
+
+invariant CommittedEntriesAgreement {
+  for server in servers {
+    for index, centry in committedEntries {
+      if index > server.commitIndex {
+        break;
+      }
+      assert server.log[index] == centry.entry;
+    }
+  }
+}
