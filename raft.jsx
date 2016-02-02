@@ -29,7 +29,8 @@ let model = module.env;
 let tooltip = new Tooltip(jQuery('#tooltip'));
 
 let numServers = 5;
-let ring = new Circle(50, 50, 40);
+let numIndexes = 9;
+let ring = new Circle(25, 50, 20);
 
 let Server = React.createClass({
   render: function() {
@@ -57,10 +58,10 @@ let Server = React.createClass({
       },
     });
     return <g>
-        <circle cx={point.x} cy={point.y} r={10}
+        <circle cx={point.x} cy={point.y} r={5}
           style={{fill: fill, stroke: 'black'}} />
-        <text x={point.x} y={point.y + 4}
-          style={{textAnchor: 'middle'}}>
+        <text x={point.x} y={point.y + 3}
+          style={{textAnchor: 'middle', fontSize: 8}}>
           {serverVar.lookup('currentTerm').toString()}
         </text>
         {votes}
@@ -81,7 +82,7 @@ let Message = React.createClass({
   },
 });
 
-let RaftView = React.createClass({
+let RingView = React.createClass({
   render: function() {
     let servers = Util.range(numServers).map(i =>
       <Server key={i + 1} serverId={i + 1} />
@@ -92,12 +93,65 @@ let RaftView = React.createClass({
     });
     return <g>
         <circle id="ring" style={{fill: 'none', stroke: 'black'}}
-          cx={50} cy={50} r={40} />
+          cx={ring.cx} cy={ring.cy} r={ring.r} />
         {servers}
         {messages}
       </g>;
   },
+});
 
+let LogView = React.createClass({
+  render: function() {
+    let indexes = Util.range(numIndexes).map(i => i + 1);
+    let servers = Util.range(numServers).map(i => {
+      let serverId = i + 1;
+      let serverVar = model.getVar('servers').index(serverId);
+      let logVar = serverVar.lookup('log');
+      let commitIndex = serverVar.lookup('commitIndex').value;
+      let entries = indexes.map(i => {
+        if (i <= logVar.size()) {
+          let entryVar = logVar.index(i);
+          let committed = (i <= commitIndex);
+          return <td key={i} style={{
+              border: 1,
+              borderStyle: committed ? 'solid' : 'dotted',
+            }}>
+              {entryVar.lookup('term').toString()}
+          </td>;
+        } else {
+          return <td key={i}></td>;
+          return '-';
+        }
+      });
+      return <tr key={serverId}>
+        <td>S{serverId}</td>
+        {entries}
+      </tr>;
+    });
+    return <g>
+        <foreignObject x={50} y={0} width={50} height={100}>
+          <table style={{fontSize: 6}}>
+            <tbody>
+              <tr>
+                <td></td>
+                {indexes.map(i => <td key={i}>{i}</td>)}
+              </tr>
+              {servers}
+            </tbody>
+          </table>
+        </foreignObject>
+      </g>;
+  },
+});
+
+
+let RaftView = React.createClass({
+  render: function() {
+    return <g>
+      <RingView />
+      <LogView />
+    </g>;
+  },
 });
 
 let reactComponent = ReactDOM.render(<RaftView />, svg);
