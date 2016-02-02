@@ -91,9 +91,25 @@ let Message = React.createClass({
     let mvar = this.props.mvar;
     let fromPoint = ring.at((mvar.lookup('from').value - 1) / numServers);
     let toPoint = ring.at((mvar.lookup('to').value - 1) / numServers);
+    let sentAt = mvar.lookup('sentAt').value;
+    let deliverAt = mvar.lookup('deliverAt').value;
+    let clockVar = model.vars.get('clock');
+    let frac = .7;
+    if (clockVar !== undefined) {
+      let clock = clockVar.value;
+      if (clock < sentAt) {
+        frac = 0;
+      } else {
+        if (clock <= deliverAt) {
+          frac = (clock - sentAt) / (deliverAt - sentAt);
+        } else {
+          frac = 1;
+        }
+      }
+    }
     let point = {
-      x: fromPoint.x + (toPoint.x - fromPoint.x) * .7,
-      y: fromPoint.y + (toPoint.y - fromPoint.y) * .7,
+      x: fromPoint.x + (toPoint.x - fromPoint.x) * frac,
+      y: fromPoint.y + (toPoint.y - fromPoint.y) * frac,
     };
     return <circle cx={point.x} cy={point.y} r={15} />;
   },
