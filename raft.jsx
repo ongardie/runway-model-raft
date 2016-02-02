@@ -28,8 +28,8 @@ let View = function(controller, svg, module) {
 let model = module.env;
 let tooltip = new Tooltip(jQuery('#tooltip'));
 
-let numServers = 5;
-let numIndexes = 9;
+let numServers = model.vars.get('servers').size();
+let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let ring = new Circle(250, 500, 200);
 
 let Server = React.createClass({
