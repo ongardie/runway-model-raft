@@ -23,7 +23,7 @@ type CandidatePeer : record {
 type LeaderPeer : record {
   nextIndex: NextIndex,
   matchIndex: MaybeIndex,
-  sendHeartbeatAt: Time,
+  appendEntriesAt: Time,
 };
 
 type Server : record {
@@ -240,7 +240,7 @@ rule sendAppendEntries for serverId, server in servers {
         while peerId == serverId {
           peerId = urandom<ServerId>();
         }
-        if lstate.peers[peerId].sendHeartbeatAt <= clock {
+        if lstate.peers[peerId].appendEntriesAt <= clock {
           var prevLogIndex : MaybeIndex = lstate.peers[peerId].nextIndex - 1;
           var prevLogTerm : MaybeTerm = 0;
           if prevLogIndex > 0 {
@@ -269,7 +269,7 @@ rule sendAppendEntries for serverId, server in servers {
               commitIndex: commitIndex,
             },
           });
-          lstate.peers[peerId].sendHeartbeatAt = clock + 50000;
+          lstate.peers[peerId].appendEntriesAt = clock + 50000;
           server.state = lstate;
         }
       }
@@ -287,10 +287,16 @@ rule clientRequest for serverId, server in servers {
           term: server.currentTerm,
           // value: to client-provided command
         });
-        lstate.peers[serverId].nextIndex += 1;
-        lstate.peers[serverId].matchIndex += 1;
+        for peerId, peer in lstate.peers {
+          if peerId == serverId {
+            peer.nextIndex += 1;
+            peer.matchIndex += 1;
+          } else {
+            peer.appendEntriesAt = 0;
+          }
+        }
         server.state = lstate;
-      },
+      }
     }
   }
 }
