@@ -5,6 +5,7 @@ let ReactDOM = require('ReactDOM');
 let jQuery = require('jquery');
 let Tooltip = require('Tooltip');
 let Util = require('Util');
+let _ = require('lodash');
 
 // Calculates where points on the circumference of a circle lie.
 class Circle {
@@ -89,7 +90,7 @@ let Message = React.createClass({
 
 let RingView = React.createClass({
   render: function() {
-    let servers = Util.range(numServers).map(i =>
+    let servers = _.range(numServers).map(i =>
       <Server key={i + 1} serverId={i + 1} />
     );
     let messages = [];
@@ -107,8 +108,8 @@ let RingView = React.createClass({
 
 let LogView = React.createClass({
   render: function() {
-    let indexes = Util.range(numIndexes).map(i => i + 1);
-    let servers = Util.range(numServers).map(i => {
+    let indexes = _.range(numIndexes).map(i => i + 1);
+    let servers = _.range(numServers).map(i => {
       let serverId = i + 1;
       let serverVar = model.getVar('servers').index(serverId);
       let logVar = serverVar.lookup('log');
