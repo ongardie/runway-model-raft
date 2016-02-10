@@ -92,7 +92,6 @@ type CommittedEntry : record {
 };
 var committedEntries : Vector<CommittedEntry>[StrictIndex];
 
-
 function lastTerm(log: Log) -> MaybeTerm {
   if empty(log) {
     return 0;
@@ -103,6 +102,14 @@ function lastTerm(log: Log) -> MaybeTerm {
 
 function quorum(serverSet: Set<ServerId>[ServerId]) -> Boolean {
   return size(serverSet) * 2 > size(servers);
+}
+
+rule startOver {
+  for server in servers {
+    if server.currentTerm == 9 || full(server.log) {
+      reset;
+    }
+  }
 }
 
 rule restart for serverId, server in servers {
