@@ -6,6 +6,7 @@ let jQuery = require('jquery');
 let Tooltip = require('Tooltip');
 let Util = require('Util');
 let _ = require('lodash');
+let Changesets = require('Changesets');
 
 // Calculates where points on the circumference of a circle lie.
 class Circle {
@@ -26,6 +27,8 @@ class Circle {
 
 let View = function(controller, svg, module) {
 
+let changes = [''];
+
 let model = module.env;
 let tooltip = new Tooltip(jQuery('#tooltip'));
 
@@ -39,6 +42,10 @@ let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let ring = new Circle(250, 500, 200);
 
 let Server = React.createClass({
+  shouldComponentUpdate: function() {
+    return Changesets.affected(changes, `servers[${this.props.serverId}]`);
+  },
+
   render: function() {
     let serverId = this.props.serverId;
     let frac = (serverId - 1) / numServers;
@@ -76,6 +83,10 @@ let Server = React.createClass({
 });
 
 let Message = React.createClass({
+  shouldComponentUpdate: function() {
+    return Changesets.affected(changes, `network[${this.props.index}]`);
+  },
+
   render: function() {
     let mvar = this.props.mvar;
     let fromPoint = ring.at((mvar.lookup('from').value - 1) / numServers);
@@ -95,7 +106,7 @@ let RingView = React.createClass({
     );
     let messages = [];
     model.getVar('network').forEach((messageVar, i) => {
-      messages.push(<Message key={i} mvar={messageVar} />);
+      messages.push(<Message key={i} index={i} mvar={messageVar} />);
     });
     return <g>
         <circle id="ring" style={{fill: 'none', stroke: 'black'}}
@@ -107,6 +118,9 @@ let RingView = React.createClass({
 });
 
 let LogView = React.createClass({
+  shouldComponentUpdate: function() {
+    return Changesets.affected(changes, `servers`);
+  },
   render: function() {
     let indexes = _.range(numIndexes).map(i => i + 1);
     let servers = _.range(numServers).map(i => {
@@ -165,7 +179,8 @@ let reactComponent = ReactDOM.render(<RaftView />, svg);
 return {
   bigView: true,
   name: 'RaftView',
-  update: function() {
+  update: function(_changes) {
+    changes = _changes;
     // trigger a render
     reactComponent.setState({}, () => {
       tooltip.update();
