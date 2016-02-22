@@ -98,7 +98,7 @@ type CommittedEntry : record {
 var committedEntries : Vector<CommittedEntry>[StrictIndex];
 
 function makeElectionTimeout() -> Time {
-  return clock + urandomRange(100000, 200000);
+  return later(urandomRange(100000, 200000));
 }
 
 function lastTerm(log: Log) -> MaybeTerm {
@@ -114,8 +114,8 @@ function quorum(serverSet: Set<ServerId>[ServerId]) -> Boolean {
 }
 
 function sendMessage(message: Message) {
-  message.sentAt = clock;
-  message.deliverAt = clock + urandomRange(10000, 20000);
+  message.sentAt = later(0);
+  message.deliverAt = later(urandomRange(10000, 20000));
   push(network, message);
 }
 
@@ -157,7 +157,7 @@ rule timeout for serverId, server in servers {
     Candidate => { doTimeout = True; },
     Leader    => { doTimeout = False; }
   }
-  if (server.timeoutAt <= clock &&
+  if (past(server.timeoutAt) &&
       doTimeout &&
       server.currentTerm < 9 /* max term */) {
     server.currentTerm += 1;
@@ -185,7 +185,7 @@ rule sendRequestVote for serverId, server in servers {
         if !empty(notResponded) {
           var target : ServerId =
             notResponded[urandomRange(1, size(notResponded))];
-          if cstate.peers[target].requestVoteAt <= clock {
+          if past(cstate.peers[target].requestVoteAt) {
             sendMessage(Message {
               from: serverId,
               to: target,
@@ -195,7 +195,7 @@ rule sendRequestVote for serverId, server in servers {
                 lastLogIndex: size(server.log),
               },
             });
-            cstate.peers[target].requestVoteAt = clock + 50000;
+            cstate.peers[target].requestVoteAt = later(50000);
             server.state = cstate;
           }
         }
@@ -240,7 +240,7 @@ rule sendAppendEntries for serverId, server in servers {
         while peerId == serverId {
           peerId = urandom<ServerId>();
         }
-        if lstate.peers[peerId].appendEntriesAt <= clock {
+        if past(lstate.peers[peerId].appendEntriesAt) {
           var prevLogIndex : MaybeIndex = lstate.peers[peerId].nextIndex - 1;
           var prevLogTerm : MaybeTerm = 0;
           if prevLogIndex > 0 {
@@ -269,7 +269,7 @@ rule sendAppendEntries for serverId, server in servers {
               commitIndex: commitIndex,
             },
           });
-          lstate.peers[peerId].appendEntriesAt = clock + 50000;
+          lstate.peers[peerId].appendEntriesAt = later(50000);
           server.state = lstate;
         }
       }
@@ -347,7 +347,7 @@ rule advanceCommitIndex for serverId, server in servers {
 }
 
 rule handleMessage for message in network {
-  if message.deliverAt <= clock {
+  if past(message.deliverAt) {
     var from : ServerId = message.from;
     var to : ServerId = message.to;
     match message.payload {
@@ -551,7 +551,7 @@ rule dropMessage for message in network {
 rule duplicateMessage for message in network {
   if !full(network) {
     var messageCopy : Message = message;
-    messageCopy.deliverAt = clock + urandomRange(10000, 20000);
+    messageCopy.deliverAt = later(urandomRange(10000, 20000));
     push(network, messageCopy);
   }
 }
