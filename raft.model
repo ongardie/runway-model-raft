@@ -148,6 +148,7 @@ rule restart for serverId, server in servers {
     },
   }
   server.commitIndex = 0;
+  server.timeoutAt = makeElectionTimeout();
 }
 
 rule timeout for serverId, server in servers {
