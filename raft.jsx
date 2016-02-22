@@ -93,19 +93,10 @@ let Message = React.createClass({
     let toPoint = ring.at((mvar.lookup('to').value - 1) / numServers);
     let sentAt = mvar.lookup('sentAt').value;
     let deliverAt = mvar.lookup('deliverAt').value;
-    let clockVar = model.vars.get('clock');
     let frac = .7;
-    if (clockVar !== undefined) {
-      let clock = clockVar.value;
-      if (clock < sentAt) {
-        frac = 0;
-      } else {
-        if (clock <= deliverAt) {
-          frac = (clock - sentAt) / (deliverAt - sentAt);
-        } else {
-          frac = 1;
-        }
-      }
+    if (controller.clock > 0) {
+      frac = _.clamp((controller.clock - sentAt) / (deliverAt - sentAt),
+                     0, 1);
     }
     let point = {
       x: fromPoint.x + (toPoint.x - fromPoint.x) * frac,
