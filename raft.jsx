@@ -84,7 +84,10 @@ let Server = React.createClass({
 
 let Message = React.createClass({
   shouldComponentUpdate: function() {
-    return Changesets.affected(changes, `network[${this.props.index}]`);
+    return Changesets.affected(changes, [
+      'clock',
+      `network[${this.props.index}]`,
+    ]);
   },
 
   render: function() {
