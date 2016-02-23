@@ -36,6 +36,7 @@ model.rules.get('restart').simulatorDisable = true;
 model.rules.get('clientRequest').simulatorDisable = true;
 model.rules.get('duplicateMessage').simulatorDisable = true;
 model.rules.get('dropMessage').simulatorDisable = true;
+model.rules.get('startOver').simulatorDisable = true;
 
 let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
