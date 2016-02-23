@@ -84,16 +84,26 @@ let Server = React.createClass({
 
 let Message = React.createClass({
   shouldComponentUpdate: function() {
-    return Changesets.affected(changes, `network[${this.props.index}]`);
+    return Changesets.affected(changes, [
+      'clock',
+      `network[${this.props.index}]`,
+    ]);
   },
 
   render: function() {
     let mvar = this.props.mvar;
     let fromPoint = ring.at((mvar.lookup('from').value - 1) / numServers);
     let toPoint = ring.at((mvar.lookup('to').value - 1) / numServers);
+    let sentAt = mvar.lookup('sentAt').value;
+    let deliverAt = mvar.lookup('deliverAt').value;
+    let frac = .7;
+    if (controller.clock > 0) {
+      frac = _.clamp((controller.clock - sentAt) / (deliverAt - sentAt),
+                     0, 1);
+    }
     let point = {
-      x: fromPoint.x + (toPoint.x - fromPoint.x) * .7,
-      y: fromPoint.y + (toPoint.y - fromPoint.y) * .7,
+      x: fromPoint.x + (toPoint.x - fromPoint.x) * frac,
+      y: fromPoint.y + (toPoint.y - fromPoint.y) * frac,
     };
     return <circle cx={point.x} cy={point.y} r={15} />;
   },
