@@ -7,6 +7,7 @@ let Tooltip = require('Tooltip');
 let Util = require('Util');
 let _ = require('lodash');
 let Changesets = require('Changesets');
+let Timeline = require('Timeline');
 
 // Calculates where points on the circumference of a circle lie.
 class Circle {
@@ -181,6 +182,7 @@ let RaftView = React.createClass({
     return <g style={{strokeWidth: 5}}>
       <RingView />
       <LogView />
+      <Timeline controller={controller} x={100} y={800} width={900} height={100} />
     </g>;
   },
 });
