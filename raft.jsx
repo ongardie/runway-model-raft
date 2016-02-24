@@ -195,7 +195,7 @@ return {
     // trigger a render
     reactComponent.setState({}, () => {
       tooltip.update();
-      console.log('rendered');
+      //console.log('rendered');
     });
   }
 };
