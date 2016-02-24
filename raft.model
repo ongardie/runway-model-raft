@@ -124,6 +124,7 @@ for server in servers {
   server.timeoutAt = makeElectionTimeout();
 }
 
+/*
 rule startOver {
   for server in servers {
     if server.currentTerm == 9 || full(server.log) {
@@ -131,8 +132,9 @@ rule startOver {
     }
   }
 }
+*/
 
-rule restart for serverId, server in servers {
+external restart for serverId, server in servers {
   // just meant to remember the term, log, and vote
   match server.state {
     Follower => { /* retain existing vote */ },
@@ -278,7 +280,7 @@ rule sendAppendEntries for serverId, server in servers {
   }
 }
 
-rule clientRequest for serverId, server in servers {
+external clientRequest for serverId, server in servers {
   if !full(server.log) {
     match server.state {
       Follower => { /* redirect client */},
@@ -545,11 +547,11 @@ rule handleMessage for message in network {
   }
 }
 
-rule dropMessage for message in network {
+external dropMessage for message in network {
   remove(network, message);
 }
 
-rule duplicateMessage for message in network {
+external duplicateMessage for message in network {
   if !full(network) {
     var messageCopy : Message = message;
     messageCopy.deliverAt = later(urandomRange(10000, 20000));

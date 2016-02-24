@@ -33,12 +33,6 @@ let changes = [''];
 let model = module.env;
 let tooltip = new Tooltip(jQuery('#tooltip'));
 
-model.rules.get('restart').simulatorDisable = true;
-model.rules.get('clientRequest').simulatorDisable = true;
-model.rules.get('duplicateMessage').simulatorDisable = true;
-model.rules.get('dropMessage').simulatorDisable = true;
-model.rules.get('startOver').simulatorDisable = true;
-
 let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let ring = new Circle(250, 500, 200);
