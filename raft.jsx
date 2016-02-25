@@ -93,7 +93,7 @@ let Message = React.createClass({
     let sentAt = mvar.lookup('sentAt').value;
     let deliverAt = mvar.lookup('deliverAt').value;
     let frac = .7;
-    if (controller.clock > 0) {
+    if (sentAt > 0) {
       frac = _.clamp((controller.clock - sentAt) / (deliverAt - sentAt),
                      0, 1);
     }
