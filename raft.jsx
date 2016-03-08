@@ -94,7 +94,7 @@ let Message = React.createClass({
     let deliverAt = mvar.lookup('deliverAt').value;
     let frac = .7;
     if (sentAt > 0) {
-      frac = _.clamp((controller.clock - sentAt) / (deliverAt - sentAt),
+      frac = _.clamp((controller.workspace.clock - sentAt) / (deliverAt - sentAt),
                      0, 1);
     }
     let point = {
