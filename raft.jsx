@@ -176,7 +176,7 @@ let RaftView = React.createClass({
     return <g style={{strokeWidth: 5}}>
       <RingView />
       <LogView />
-      <Timeline controller={controller} x={100} y={800} width={900} height={100} />
+      <Timeline controller={controller} x={75} y={800} width={850} height={100} />
     </g>;
   },
 });
