@@ -13,14 +13,42 @@ class Circle {
   at(frac) {
     let radian = frac * 2 * Math.PI;
     return {
-      x: this.cx + this.r * Math.sin(radian),
-      y: this.cy - this.r * Math.cos(radian),
+      x: _.round(this.cx + this.r * Math.sin(radian), 2),
+      y: _.round(this.cy - this.r * Math.cos(radian), 2),
     };
   }
 }
 
 
 let View = function(controller, svg, module) {
+
+d3.select('head').append('style')
+  .text(`
+      .server .serverbg {
+        stroke: black;
+      }
+      .server.follower .serverbg {
+        fill: gray;
+      }
+      .server.candidate .serverbg {
+        fill: #aa6666;
+      }
+      .server.leader .serverbg {
+        fill: #00aa00;
+      }
+      .server g.votes {
+        visibility: hidden;
+      }
+      .server.candidate g.votes {
+        visibility: visible;
+      }
+      .server.candidate g.votes {
+        fill: white;
+      }
+      .server.candidate g.votes .granted {
+        fill: black;
+      }
+  `);
 
 let model = module.env;
 
@@ -73,13 +101,14 @@ class Servers {
 
     // Server enter
     let enterG = updateG.enter()
-      .append('g')
-        .attr('class', 'server');
+      .append('g');
     enterG.append('circle')
+      .attr('class', 'serverbg')
       .attr('cx', s => s.point.x)
       .attr('cy', s => s.point.y)
       .attr('r', 50);
     enterG.append('text')
+      .attr('class', 'term')
       .attr('x', s => s.point.x)
       .attr('y', s => s.point.y + 30)
       .style({
@@ -90,14 +119,11 @@ class Servers {
       .attr('class', 'votes');
 
     // Server update
-    updateG.select('circle')
-      .style('fill', s => s.serverVar.lookup('state').match({
-          Follower: 'gray',
-          Candidate: '#aa6666',
-          Leader: '#00aa00',
-      }))
-      .style('stroke', 'black');
-
+    updateG.attr('class', s => ('server ' + s.serverVar.lookup('state').match({
+          Follower: 'follower',
+          Candidate: 'candidate',
+          Leader: 'leader',
+        })));
     updateG.select('text')
       .text(s => s.serverVar.lookup('currentTerm').toString());
 
@@ -106,12 +132,6 @@ class Servers {
   } // Servers.draw()
 
   drawVotes(votesSel) {
-    votesSel.style('visibility', s => s.serverVar.lookup('state').match({
-        Follower: 'hidden',
-        Candidate: 'visible',
-        Leader: 'hidden',
-    }));
-
     let updateSel = votesSel.selectAll('circle')
       .data(s => s.getVotes().map((vote, i) => ({
         server: s,
@@ -125,7 +145,7 @@ class Servers {
         .attr('cy', v => v.point.y)
         .attr('r', 5);
     updateSel
-      .style('fill', v => v.vote == 'granted' ? 'black' : 'white');
+      .attr('class', v => v.vote);
   } // Servers.drawVotes()
 
 } // class Servers
@@ -144,7 +164,9 @@ d3.select(svg).append('circle')
   });
 
 let servers = new Servers();
-let serversG = d3.select(svg).append('g');
+let serversG = d3.select(svg)
+  .append('g')
+    .attr('class', 'servers');
 servers.draw(serversG);
 
 return {
