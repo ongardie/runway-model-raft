@@ -150,6 +150,71 @@ class Servers {
 
 } // class Servers
 
+class Message {
+  constructor(messageVar) {
+    this.messageVar = messageVar;
+    this.fromPoint = ringLayout.at((messageVar.lookup('from').value - 1) / numServers);
+    this.toPoint = ringLayout.at((messageVar.lookup('to').value - 1) / numServers);
+    this.point = {
+      x: 0,
+      y: 0,
+    };
+  }
+  update(clock) {
+    let sentAt = this.messageVar.lookup('sentAt').value;
+    let deliverAt = this.messageVar.lookup('deliverAt').value;
+    let frac = .7;
+    if (sentAt > 0) {
+      frac = _.clamp((clock - sentAt) / (deliverAt - sentAt),
+                     0, 1);
+    }
+    this.point.x = _.round(this.fromPoint.x + (this.toPoint.x - this.fromPoint.x) * frac, 2);
+    this.point.y = _.round(this.fromPoint.y + (this.toPoint.y - this.fromPoint.y) * frac, 2);
+    return this;
+  }
+}
+
+class Messages {
+  constructor() {
+  }
+
+  draw(selection, changes) {
+    /*
+    Changesets.affected(changes, [
+      'clock',
+      `network[${index}]`,
+    ]);
+    */
+
+
+    let messageData = model.getVar('network').map(v =>
+      new Message(v).update(controller.workspace.clock));
+    let updateSel = messagesG
+      .selectAll('g.message')
+      .data(messageData);
+
+    // Message enter
+    let enterSel = updateSel.enter()
+      .append('g');
+    enterSel.append('circle')
+      .attr('r', 15);
+
+    // Message update
+    updateSel.attr('class', m => ('message ' + m.messageVar.lookup('payload').match({
+          RequestVoteRequest: 'RequestVote request',
+          RequestVoteResponse: 'RequestVote response',
+          AppendEntriesRequest: 'AppendEntries request',
+          AppendEntriesResponse: 'AppendEntries response',
+        })));
+    updateSel.select('circle')
+      .attr('cx', m => m.point.x)
+      .attr('cy', m => m.point.y);
+
+    // Message exit
+    updateSel.exit().remove();
+
+  } // Messages.draw()
+}
 
 d3.select(svg).append('circle')
   .attr({
@@ -163,17 +228,24 @@ d3.select(svg).append('circle')
     fill: 'none',
   });
 
-let servers = new Servers();
 let serversG = d3.select(svg)
   .append('g')
     .attr('class', 'servers');
+let messagesG = d3.select(svg)
+  .append('g')
+    .attr('class', 'messages');
+
+let servers = new Servers();
 servers.draw(serversG);
+let messages = new Messages();
+messages.draw(messagesG);
 
 return {
   bigView: true,
   name: 'RaftView',
   update: function(changes) {
     servers.draw(serversG, changes);
+    messages.draw(messagesG, changes);
   }
 };
 
