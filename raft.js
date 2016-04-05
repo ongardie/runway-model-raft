@@ -28,6 +28,7 @@ let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let ringLayout = new Circle(250, 500, 200);
 
+// Wraps the model's Server Record with additional information for drawing
 class Server {
   constructor(serverId, serverVar) {
     this.serverVar = serverVar;
@@ -52,64 +53,6 @@ class Server {
       Leader: model.vars.get('servers').map(s => 'N/A'),
     });
   }
-
-  enter(selection) {
-    selection.append('circle')
-      .attr({
-        cx: this.point.x,
-        cy: this.point.y,
-        r: 50,
-      });
-    selection.append('text')
-      .attr({
-        x: this.point.x,
-        y: this.point.y + 30,
-      })
-      .style({
-        'text-anchor': 'middle',
-        'font-size': 80,
-      });
-    let votesG = selection.append('g')
-      .attr('class', 'votes');
-  } // enter
-
-  update(selection, changes) {
-    selection.select('circle')
-      .style({
-        fill: this.serverVar.lookup('state').match({
-          Follower: 'gray',
-          Candidate: '#aa6666',
-          Leader: '#00aa00',
-        }),
-        stroke: 'black'
-      });
-
-    selection.select('text')
-      .text(this.serverVar.lookup('currentTerm').toString());
-
-    let votesG = selection.select('g.votes').selectAll('circle');
-    let votesUpdate = votesG.data(this.getVotes());
-    let self = this;
-    votesUpdate.enter()
-      .append('circle')
-        .each(function(vote, i) {
-          let peerPoint = self.peersCircle.at(i / numServers);
-          d3.select(this).attr({
-            cx: peerPoint.x,
-            cy: peerPoint.y,
-            r: 5,
-          });
-        });
-    votesUpdate
-      .style('visibility', this.serverVar.lookup('state').match({
-        Follower: 'hidden',
-        Candidate: 'visible',
-        Leader: 'hidden',
-      }))
-      .style('fill', vote => vote == 'granted' ? 'black' : 'white');
-
-  } // update()
-
 }
 
 let serverData = model.getVar('servers').map((v, id) => new Server(id, v));
@@ -127,12 +70,64 @@ class Servers {
     let updateG = serversG
       .selectAll('g.server')
       .data(serverData);
-    let enterG = updateG.enter();
+
+    // Server enter
+    let enterG = updateG.enter()
+      .append('g')
+        .attr('class', 'server');
+    enterG.append('circle')
+      .attr('cx', s => s.point.x)
+      .attr('cy', s => s.point.y)
+      .attr('r', 50);
+    enterG.append('text')
+      .attr('x', s => s.point.x)
+      .attr('y', s => s.point.y + 30)
+      .style({
+        'text-anchor': 'middle',
+        'font-size': 80,
+      });
     enterG.append('g')
-        .attr('class', 'server')
-        .each(function(server) { server.enter(d3.select(this)); });
-    updateG.each(function(server) { server.update(d3.select(this)); });
+      .attr('class', 'votes');
+
+    // Server update
+    updateG.select('circle')
+      .style('fill', s => s.serverVar.lookup('state').match({
+          Follower: 'gray',
+          Candidate: '#aa6666',
+          Leader: '#00aa00',
+      }))
+      .style('stroke', 'black');
+
+    updateG.select('text')
+      .text(s => s.serverVar.lookup('currentTerm').toString());
+
+    // Votes
+    this.drawVotes(updateG.select('g.votes'));
   } // Servers.draw()
+
+  drawVotes(votesSel) {
+    votesSel.style('visibility', s => s.serverVar.lookup('state').match({
+        Follower: 'hidden',
+        Candidate: 'visible',
+        Leader: 'hidden',
+    }));
+
+    let updateSel = votesSel.selectAll('circle')
+      .data(s => s.getVotes().map((vote, i) => ({
+        server: s,
+        vote: vote,
+        point: s.peersCircle.at(i / numServers),
+      })));
+    let enterSel = updateSel.enter();
+    enterSel
+      .append('circle')
+        .attr('cx', v => v.point.x)
+        .attr('cy', v => v.point.y)
+        .attr('r', 5);
+    updateSel
+      .style('fill', v => v.vote == 'granted' ? 'black' : 'white');
+  } // Servers.drawVotes()
+
 } // class Servers
 
 
