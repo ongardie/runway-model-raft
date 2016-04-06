@@ -19,8 +19,43 @@ class Circle {
   }
 }
 
+class Markers {
+  constructor(defs) {
+    this.defs = defs;
+    this.added = [];
+  }
+  has(id) {
+    return _.includes(this.added, id);
+  }
+  append(id) {
+    return this.defs.append('marker')
+      .attr('id', id);
+  }
+  ref(id) {
+    return `url(#${id})`;
+  }
+}
+
+class Transform {
+  constructor() {
+    this.operations = [];
+  }
+  toString() {
+    return _.reverse(_.clone(this.operations)).join(' ');
+  }
+  translate(x, y) {
+    this.operations.push(`translate(${x}, ${y})`);
+    return this;
+  };
+  rotate(angle) {
+    this.operations.push(`rotate(${angle})`);
+    return this;
+  }
+}
 
 let View = function(controller, svg, module) {
+
+let markers = new Markers(d3.select(svg).append('defs'));
 
 d3.select('head').append('style')
   .text(`
@@ -125,7 +160,9 @@ class Servers {
       .attr('r', 50);
     enterG.append('path')
       .attr('class', 'timeout')
-      .attr('transform', s => `translate(${s.point.x}, ${s.point.y})`);
+      .attr('transform', s => new Transform()
+        .translate(s.point.x, s.point.y)
+        .toString());
     enterG.append('text')
       .attr('class', 'term')
       .attr('x', s => s.point.x)
@@ -171,11 +208,19 @@ class Servers {
 
 } // class Servers
 
+let radianToAngle = radian => radian / (2 * Math.PI) * 360;
+
 class Message {
   constructor(messageVar) {
     this.messageVar = messageVar;
     this.fromPoint = ringLayout.at((messageVar.lookup('from').value - 1) / numServers);
     this.toPoint = ringLayout.at((messageVar.lookup('to').value - 1) / numServers);
+    let rise = this.toPoint.y - this.fromPoint.y;
+    let run = this.toPoint.x - this.fromPoint.x;
+    this.angle = radianToAngle(Math.atan(rise / run));
+    if (run < 0) {
+      this.angle += 180;
+    }
     this.point = {
       x: 0,
       y: 0,
@@ -197,6 +242,18 @@ class Message {
 
 class Messages {
   constructor() {
+    markers.append('arrow')
+      .attr({
+        viewBox: '0 -5 10 10',
+        refX: 5,
+        refY: 0,
+        markerWidth: 4,
+        markerHeight: 4,
+        orient:'auto',
+      })
+      .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('class', 'arrowHead');
   }
 
   draw(selection, changes) {
@@ -219,6 +276,16 @@ class Messages {
       .append('g');
     enterSel.append('circle')
       .attr('r', 15);
+    enterSel.append('line')
+      .attr({
+        x1: 0,
+        y1: 0,
+        x2: 30,
+        y2: 0,
+        'stroke-width': 4,
+        'stroke': 'black',
+        'marker-end': markers.ref('arrow'),
+      });
 
     // Message update
     updateSel.attr('class', m => ('message ' + m.messageVar.lookup('payload').match({
@@ -230,6 +297,11 @@ class Messages {
     updateSel.select('circle')
       .attr('cx', m => m.point.x)
       .attr('cy', m => m.point.y);
+    updateSel.select('line')
+      .attr('transform', m => new Transform()
+        .rotate(m.angle)
+        .translate(m.point.x, m.point.y)
+        .toString());
 
     // Message exit
     updateSel.exit().remove();
