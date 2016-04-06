@@ -41,8 +41,6 @@ d3.select('head').append('style')
       }
       .server.candidate g.votes {
         visibility: visible;
-      }
-      .server.candidate g.votes {
         fill: white;
       }
       .server.candidate g.votes .granted {
@@ -54,6 +52,7 @@ let model = module.env;
 
 let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
+let electionTimeout = 100000;
 let ringLayout = new Circle(250, 500, 200);
 
 // Wraps the model's Server Record with additional information for drawing
@@ -64,6 +63,12 @@ class Server {
     this.frac = (this.serverId - 1) / numServers;
     this.point = ringLayout.at(this.frac);
     this.peersCircle = new Circle(this.point.x, this.point.y, 40);
+
+    this.timeoutArc = d3.svg.arc()
+      .innerRadius(50)
+      .outerRadius(60)
+      .startAngle(0)
+      .endAngle(0);
   }
 
   getVotes() {
@@ -81,6 +86,16 @@ class Server {
       Leader: model.vars.get('servers').map(s => 'N/A'),
     });
   }
+
+  update(clock) {
+    let timeoutFrac = ((this.serverVar.lookup('timeoutAt').value - clock) /
+       (electionTimeout * 2));
+    this.serverVar.lookup('state').match({
+      Leader: () => { timeoutFrac = 1; },
+    });
+    this.timeoutArc.endAngle(2 * Math.PI * timeoutFrac);
+    return this;
+  }
 }
 
 let serverData = model.getVar('servers').map((v, id) => new Server(id, v));
@@ -95,6 +110,7 @@ class Servers {
     }
     //Changesets.affected(changes, `servers[${serverId}]`);
 
+    serverData.forEach(s => s.update(controller.workspace.clock));
     let updateG = serversG
       .selectAll('g.server')
       .data(serverData);
@@ -107,6 +123,9 @@ class Servers {
       .attr('cx', s => s.point.x)
       .attr('cy', s => s.point.y)
       .attr('r', 50);
+    enterG.append('path')
+      .attr('class', 'timeout')
+      .attr('transform', s => `translate(${s.point.x}, ${s.point.y})`);
     enterG.append('text')
       .attr('class', 'term')
       .attr('x', s => s.point.x)
@@ -124,6 +143,8 @@ class Servers {
           Candidate: 'candidate',
           Leader: 'leader',
         })));
+    updateG.select('path.timeout')
+      .attr('d', s => s.timeoutArc());
     updateG.select('text')
       .text(s => s.serverVar.lookup('currentTerm').toString());
 
