@@ -81,6 +81,19 @@ d3.select('head').append('style')
       .server.candidate g.votes .granted {
         fill: black;
       }
+
+      .logs .bg rect {
+        fill: #dddddd;
+        stroke: gray;
+      }
+      .logs .entry rect {
+        fill: #bcff29;
+        stroke: black;
+        stroke-width: 8;
+      }
+      .logs .entry.uncommitted rect {
+        stroke-dasharray: 20, 15;
+      }
   `);
 
 let model = module.env;
@@ -309,6 +322,117 @@ class Messages {
   } // Messages.draw()
 }
 
+class Logs {
+  constructor() {
+    this.x = 500;
+    this.y = 100;
+    this.width = 500;
+    this.height = 800;
+    this.serverLabelWidth = 50;
+    this.indexHeight = 50;
+    this.rowHeight = this.height / 8;
+    this.columnWidth = .9 * (this.width - this.serverLabelWidth) / numIndexes;
+    this.indexes = _.range(numIndexes).map(i => i + 1);
+  }
+
+  entryBBox(serverId, index) {
+    return {
+      x: this.x + this.serverLabelWidth + (index - 1) * this.columnWidth,
+      y: this.y + this.indexHeight + (serverId - 1 + .1) * this.rowHeight,
+      width: this.columnWidth,
+      height: .8 * this.rowHeight,
+    };
+  }
+
+  drawFixed(selection) {
+    let enterSel = selection
+      .append('g')
+        .attr('class', 'indexes')
+        .selectAll('text')
+        .data(this.indexes).enter();
+    enterSel.append('text')
+      .attr('class', 'index')
+      .attr('x', (index, i) => this.x + this.serverLabelWidth + i * this.columnWidth)
+      .attr('y', this.y)
+      .style('font-size', 60)
+      .text(index => index);
+  }
+
+  draw(selection, changes) {
+    /*
+    Changesets.affected(changes, [
+      'servers',
+    ]);
+    */
+    let updateSel = logsG
+      .selectAll('g.log')
+      .data(serverData);
+
+    // Log enter
+    let enterSel = updateSel.enter()
+      .append('g')
+      .attr('class', 'log');
+    enterSel.append('text')
+      .attr('class', 'serverId')
+      .attr('x', (s, i) => this.x)
+      .attr('y', (s, i) => this.y + this.indexHeight + (i + .8) * this.rowHeight)
+      .style('font-size', 60)
+      .text(s => s.serverId);
+
+    let bg = enterSel.append('g')
+      .attr('class', 'bg');
+    bg.selectAll('rect')
+      .data(server => this.indexes.map(index => ({
+        server: server,
+        index: index,
+        bbox: this.entryBBox(server.serverId, index),
+      })))
+      .enter()
+      .append('rect')
+        .attr('x', si => si.bbox.x)
+        .attr('y', si => si.bbox.y)
+        .attr('width', si => si.bbox.width)
+        .attr('height', si => si.bbox.height);
+    updateSel.append('g')
+      .attr('class', 'entries');
+
+    // Log update
+    let entriesUpdateSel = updateSel.select('g.entries').selectAll('g')
+      .data(server => server.serverVar.lookup('log').map((entry, index) => ({
+        server: server,
+        entry: entry,
+        index: index,
+        bbox: this.entryBBox(server.serverId, index),
+      })));
+    let entriesEnterSel = entriesUpdateSel.enter()
+        .append('g');
+    entriesEnterSel.append('rect')
+        .attr('x', entry => entry.bbox.x)
+        .attr('y', entry => entry.bbox.y)
+        .attr('width', entry => entry.bbox.width)
+        .attr('height', entry => entry.bbox.height);
+    entriesEnterSel.append('text')
+        .attr('x', entry => entry.bbox.x)
+        .attr('y', entry => entry.bbox.y + .8 * entry.bbox.height)
+        .attr('width', entry => entry.bbox.width)
+        .attr('height', entry => entry.bbox.height)
+        .style('font-size', 60);
+    entriesUpdateSel
+      .attr('class', entry => ('entry ' +
+        (entry.server.serverVar.lookup('commitIndex').value >= entry.index
+          ? 'committed'
+          : 'uncommitted')));
+    entriesUpdateSel.select('text')
+      .text(entry => entry.entry.lookup('term').toString());
+    entriesUpdateSel.exit().remove();
+
+
+    // Log exit
+    updateSel.exit().remove();
+
+  } // Logs.draw()
+}
+
 d3.select(svg).append('circle')
   .attr({
     cx: ringLayout.cx,
@@ -327,11 +451,17 @@ let serversG = d3.select(svg)
 let messagesG = d3.select(svg)
   .append('g')
     .attr('class', 'messages');
+let logsG = d3.select(svg)
+  .append('g')
+    .attr('class', 'logs');
 
 let servers = new Servers();
 servers.draw(serversG);
 let messages = new Messages();
 messages.draw(messagesG);
+let logs = new Logs();
+logs.drawFixed(logsG);
+logs.draw(logsG);
 
 return {
   bigView: true,
@@ -339,6 +469,7 @@ return {
   update: function(changes) {
     servers.draw(serversG, changes);
     messages.draw(messagesG, changes);
+    logs.draw(logsG, changes);
   }
 };
 
