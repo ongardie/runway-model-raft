@@ -73,7 +73,7 @@ d3.select('head').append('style')
         fill: black;
       }
 
-      .logs text.serverId.leader {
+      .leader text.serverId {
         fill: red;
       }
       .logs .bg rect {
@@ -95,6 +95,7 @@ let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let electionTimeout = 100000;
 let ringLayout = new Circle(250, 500, 200);
+let serverLabelCircle = new Circle(250, 500, 300);
 
 let termColor = d3.scale.category10();
 
@@ -105,6 +106,7 @@ class Server {
     this.serverId = serverId;
     this.frac = (this.serverId - 1) / numServers;
     this.point = ringLayout.at(this.frac);
+    this.labelPoint = serverLabelCircle.at(this.frac);
     this.peersCircle = new Circle(this.point.x, this.point.y, 40);
 
     this.timeoutArc = d3.svg.arc()
@@ -169,6 +171,12 @@ class Servers {
     // Server enter
     let enterG = updateG.enter()
       .append('g');
+    enterG.append('text')
+      .attr('class', 'serverId')
+      .attr('x', s => s.labelPoint.x - 50)
+      .attr('y', s => s.labelPoint.y + 50)
+      .style('font-size', 60)
+      .text(s => `S${s.serverId}`);
     enterG.append('circle')
       .attr('class', 'serverbg')
       .attr('cx', s => s.point.x)
@@ -196,7 +204,7 @@ class Servers {
       .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
     updateG.select('path.timeout')
       .attr('d', s => s.timeoutArc());
-    updateG.select('text')
+    updateG.select('text.term')
       .text(s => s.serverVar.lookup('currentTerm').toString());
 
     // Votes
@@ -399,8 +407,8 @@ class Logs {
       .attr('class', 'entries');
 
     // Log update
-    updateSel.select('text.serverId')
-      .attr('class', s => 'serverId ' + s.stateClass());
+    updateSel
+      .attr('class', s => 'log ' + s.stateClass());
     let entriesUpdateSel = updateSel.select('g.entries').selectAll('g')
       .data(server => server.serverVar.lookup('log').map((entry, index) => ({
         server: server,
