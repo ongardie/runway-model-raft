@@ -55,43 +55,67 @@ class Transform {
 
 let View = function(controller, svg, module) {
 
-let markers = new Markers(d3.select(svg).append('defs'));
+svg = d3.select(svg)
+  .classed('raft', true)
+  .append('g');
+
+
+let markers = new Markers(svg.append('defs'));
 
 d3.select('head').append('style')
   .text(`
-      .server .serverbg {
+      .raft {
+        font-size: 60;
+      }
+      .raft circle.ring {
+        stroke: black;
+        stroke-width: 5;
+        fill: none;
+      }
+      .raft .leader.current text.serverId {
+        fill: red;
+      }
+
+      .raft .server .serverbg {
         stroke: black;
       }
-      .server g.votes {
+      .raft .server g.votes {
         visibility: hidden;
       }
-      .server.candidate g.votes {
+      .raft .server.candidate g.votes {
         visibility: visible;
         fill: white;
       }
-      .server.candidate g.votes .granted {
+      .raft .server.candidate g.votes .granted {
         fill: black;
       }
 
-      .leader.current text.serverId {
-        fill: red;
+      .raft .message line {
+        stroke-width: 4;
+        stroke: black;
       }
-      .logs .bg rect {
+
+      .raft .logs .bg rect {
         fill: #dddddd;
         stroke: gray;
       }
-      .logs .entry rect {
+      .raft .logs .entry rect {
         stroke: black;
         stroke-width: 8;
       }
-      .logs .entry.uncommitted rect {
+      .raft .logs .entry.uncommitted rect {
         stroke-dasharray: 20, 15;
       }
 
-      .noLeader .nextIndex,
-      .noLeader .matchIndex,
-      .leader.current .nextIndex,
-      .leader.current .matchIndex {
+      .raft line.nextIndex {
+        stroke-width: 6;
+        stroke: black;
+      }
+
+      .raft .noLeader .nextIndex,
+      .raft .noLeader .matchIndex,
+      .raft .leader.current .nextIndex,
+      .raft .leader.current .matchIndex {
         visibility: hidden;
       }
   `);
@@ -197,9 +221,9 @@ class Servers {
       .append('g');
     enterG.append('text')
       .attr('class', 'serverId')
-      .attr('x', s => s.labelPoint.x - 50)
-      .attr('y', s => s.labelPoint.y + 50)
-      .style('font-size', 60)
+      .attr('x', s => s.labelPoint.x)
+      .attr('y', s => s.labelPoint.y + 30)
+      .style('text-anchor', 'middle')
       .text(s => `S${s.serverId}`);
     enterG.append('circle')
       .attr('class', 'serverbg')
@@ -217,7 +241,6 @@ class Servers {
       .attr('y', s => s.point.y + 30)
       .style({
         'text-anchor': 'middle',
-        'font-size': 80,
       });
     enterG.append('g')
       .attr('class', 'votes');
@@ -328,8 +351,6 @@ class Messages {
         y1: 0,
         x2: 30,
         y2: 0,
-        'stroke-width': 4,
-        'stroke': 'black',
         'marker-end': markers.ref('arrow'),
       });
 
@@ -387,7 +408,6 @@ class Logs {
       .attr('class', 'index')
       .attr('x', (index, i) => this.x + this.serverLabelWidth + i * this.columnWidth)
       .attr('y', this.y + .8 * this.indexHeight)
-      .style('font-size', 60)
       .text(index => index);
   }
 
@@ -407,10 +427,8 @@ class Logs {
       .attr('class', 'log');
     enterSel.append('text')
       .attr('class', 'serverId')
-
       .attr('x', (s, i) => this.x)
       .attr('y', (s, i) => this.y + this.indexHeight + (i + .8) * this.rowHeight)
-      .style('font-size', 60)
       .text(s => `S${s.serverId}`);
 
     let bg = enterSel.append('g')
@@ -437,9 +455,7 @@ class Logs {
       .attr('class', 'nextIndex')
       .attr('y1', (s, i) => this.y + this.indexHeight + (i + 1.1) * this.rowHeight)
       .attr('y2', (s, i) => this.y + this.indexHeight + (i + .9) * this.rowHeight)
-      .attr('marker-end', markers.ref('arrow'))
-      .style('stroke', 'black')
-      .style('stroke-width', 6);
+      .attr('marker-end', markers.ref('arrow'));
 
     // Log update
     updateSel
@@ -463,7 +479,6 @@ class Logs {
         .attr('y', entry => entry.bbox.y + .8 * entry.bbox.height)
         .attr('width', entry => entry.bbox.width)
         .attr('height', entry => entry.bbox.height)
-        .style('font-size', 60);
     entriesUpdateSel
       .attr('class', entry => ('entry ' +
         (entry.server.serverVar.lookup('commitIndex').value >= entry.index
@@ -500,25 +515,21 @@ class Logs {
   } // Logs.draw()
 }
 
-d3.select(svg).append('circle')
+svg.append('circle')
+  .attr('class', 'ring')
   .attr({
     cx: ringLayout.cx,
     cy: ringLayout.cy,
     r: ringLayout.r,
-  })
-  .style({
-    stroke: 'black',
-    'stroke-width': 5,
-    fill: 'none',
   });
 
-let serversG = d3.select(svg)
+let serversG = svg
   .append('g')
     .attr('class', 'servers');
-let messagesG = d3.select(svg)
+let messagesG = svg
   .append('g')
     .attr('class', 'messages');
-let logsG = d3.select(svg)
+let logsG = svg
   .append('g')
     .attr('class', 'logs');
 
@@ -543,8 +554,7 @@ return {
         si => si.server.lookup('currentTerm').value)
       .map(si => si.id));
 
-  d3.select(svg)
-    .classed({
+  svg.classed({
       hasLeader: currentLeaderId !== undefined,
       noLeader: currentLeaderId === undefined,
     });
