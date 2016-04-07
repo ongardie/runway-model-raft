@@ -174,33 +174,26 @@ rule timeout for serverId, server in servers {
   }
 }
 
-rule sendRequestVote for serverId, server in servers {
-  if !full(network) {
+rule sendRequestVote
+for serverId, server in servers
+for targetId, _target in servers {
+  if !full(network) && serverId != targetId {
     match server.state {
       Follower => { /* do nothing */ },
       Candidate as cstate => {
-        var notResponded : Set<ServerId>[ServerId];
-        for peerId, peer in cstate.peers {
-          if !peer.voteResponded {
-            push(notResponded, peerId);
-          }
-        }
-        if !empty(notResponded) {
-          var target : ServerId =
-            notResponded[urandomRange(1, size(notResponded))];
-          if past(cstate.peers[target].requestVoteAt) {
-            sendMessage(Message {
-              from: serverId,
-              to: target,
-              payload: RequestVoteRequest {
-                term: server.currentTerm,
-                lastLogTerm: lastTerm(server.log),
-                lastLogIndex: size(server.log),
-              },
-            });
-            cstate.peers[target].requestVoteAt = later(50000);
-            server.state = cstate;
-          }
+        if !cstate.peers[targetId].voteResponded &&
+           past(cstate.peers[targetId].requestVoteAt) {
+          sendMessage(Message {
+            from: serverId,
+            to: targetId,
+            payload: RequestVoteRequest {
+              term: server.currentTerm,
+              lastLogTerm: lastTerm(server.log),
+              lastLogIndex: size(server.log),
+            },
+          });
+          cstate.peers[targetId].requestVoteAt = later(50000);
+          server.state = cstate;
         }
       },
       Leader => { /* do nothing */ }
@@ -233,18 +226,16 @@ rule becomeLeader for serverId, server in servers {
   }
 }
 
-rule sendAppendEntries for serverId, server in servers {
-  if !full(network) && size(servers) > 1 {
+rule sendAppendEntries
+for serverId, server in servers
+for targetId, _target in servers {
+  if !full(network) && serverId != targetId {
     match server.state {
       Follower => { /* do nothing */ },
       Candidate => { /* do nothing */ },
       Leader as lstate => {
-        var peerId : ServerId = serverId;
-        while peerId == serverId {
-          peerId = urandom<ServerId>();
-        }
-        if past(lstate.peers[peerId].appendEntriesAt) {
-          var prevLogIndex : MaybeIndex = lstate.peers[peerId].nextIndex - 1;
+        if past(lstate.peers[targetId].appendEntriesAt) {
+          var prevLogIndex : MaybeIndex = lstate.peers[targetId].nextIndex - 1;
           var prevLogTerm : MaybeTerm = 0;
           if prevLogIndex > 0 {
             prevLogTerm = server.log[prevLogIndex].term;
@@ -263,7 +254,7 @@ rule sendAppendEntries for serverId, server in servers {
           }
           sendMessage(Message {
             from: serverId,
-            to: peerId,
+            to: targetId,
             payload: AppendEntriesRequest {
               term: server.currentTerm,
               prevLogIndex: prevLogIndex,
@@ -272,7 +263,7 @@ rule sendAppendEntries for serverId, server in servers {
               commitIndex: commitIndex,
             },
           });
-          lstate.peers[peerId].appendEntriesAt = later(50000);
+          lstate.peers[targetId].appendEntriesAt = later(50000);
           server.state = lstate;
         }
       }
@@ -572,14 +563,14 @@ invariant VotesConsistent {
             assert peer.voteResponded;
             if servers[peerId].currentTerm == server.currentTerm {
               match servers[peerId].state {
-                Follower as fstate => { 
+                Follower as fstate => {
                   match fstate.vote {
                     Available => { assert False; },
                     Granted as g => { assert g.to == serverId; },
                   }
                 },
                 Candidate => {
-                  assert peerId == serverId; 
+                  assert peerId == serverId;
                 },
                 Leader => { assert False; },
               }
