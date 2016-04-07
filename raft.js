@@ -73,7 +73,7 @@ d3.select('head').append('style')
         fill: black;
       }
 
-      .leader text.serverId {
+      .leader.current text.serverId {
         fill: red;
       }
       .logs .bg rect {
@@ -87,6 +87,13 @@ d3.select('head').append('style')
       .logs .entry.uncommitted rect {
         stroke-dasharray: 20, 15;
       }
+
+      .noLeader .nextIndex,
+      .noLeader .matchIndex,
+      .leader.current .nextIndex,
+      .leader.current .matchIndex {
+        visibility: hidden;
+      }
   `);
 
 let model = module.env;
@@ -96,6 +103,10 @@ let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let electionTimeout = 100000;
 let ringLayout = new Circle(250, 500, 200);
 let serverLabelCircle = new Circle(250, 500, 300);
+
+// The current leader is defined as the leader of the largest term, or
+// undefined if no leaders. This is its server ID.
+let currentLeaderId = undefined;
 
 let termColor = d3.scale.category10();
 
@@ -132,12 +143,25 @@ class Server {
     });
   }
 
-  stateClass() {
-    return this.serverVar.lookup('state').match({
-      Follower: 'follower',
-      Candidate: 'candidate',
-      Leader: 'leader',
+  stateClasses() {
+    let classes = [];
+    this.serverVar.lookup('state').match({
+      Follower: () => {
+        classes.push('follower');
+      },
+      Candidate: () => {
+        classes.push('candidate');
+      },
+      Leader: () => {
+        classes.push('leader');
+        if (currentLeaderId === this.serverId) {
+          classes.push('current');
+        } else {
+          classes.push('stale');
+        }
+      },
     });
+    return classes.join(' ');
   }
 
   update(clock) {
@@ -151,7 +175,7 @@ class Server {
   }
 }
 
-let serverData = model.getVar('servers').map((v, id) => new Server(id, v));
+let serverData = model.vars.get('servers').map((v, id) => new Server(id, v));
 
 class Servers {
   constructor() {
@@ -199,7 +223,7 @@ class Servers {
       .attr('class', 'votes');
 
     // Server update
-    updateG.attr('class', s => 'server ' + s.stateClass());
+    updateG.attr('class', s => 'server ' + s.stateClasses());
     updateG.select('.serverbg')
       .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
     updateG.select('path.timeout')
@@ -287,7 +311,7 @@ class Messages {
     */
 
 
-    let messageData = model.getVar('network').map(v =>
+    let messageData = model.vars.get('network').map(v =>
       new Message(v).update(controller.workspace.clock));
     let updateSel = messagesG
       .selectAll('g.message')
@@ -405,10 +429,21 @@ class Logs {
         .attr('height', si => si.bbox.height);
     enterSel.append('g')
       .attr('class', 'entries');
+    enterSel.append('circle')
+      .attr('class', 'matchIndex')
+      .attr('cy', (s, i) => this.y + this.indexHeight + (i + .9) * this.rowHeight)
+      .attr('r', 10);
+    enterSel.append('line')
+      .attr('class', 'nextIndex')
+      .attr('y1', (s, i) => this.y + this.indexHeight + (i + 1.1) * this.rowHeight)
+      .attr('y2', (s, i) => this.y + this.indexHeight + (i + .9) * this.rowHeight)
+      .attr('marker-end', markers.ref('arrow'))
+      .style('stroke', 'black')
+      .style('stroke-width', 6);
 
     // Log update
     updateSel
-      .attr('class', s => 'log ' + s.stateClass());
+      .attr('class', s => 'log ' + s.stateClasses());
     let entriesUpdateSel = updateSel.select('g.entries').selectAll('g')
       .data(server => server.serverVar.lookup('log').map((entry, index) => ({
         server: server,
@@ -439,6 +474,24 @@ class Logs {
     entriesUpdateSel.select('text')
       .text(entry => entry.entry.lookup('term').toString());
     entriesUpdateSel.exit().remove();
+
+    if (currentLeaderId !== undefined) {
+      let currentLeader = model.vars.get('servers').index(currentLeaderId);
+      currentLeader.lookup('state').match({
+        Leader: lstate => {
+          let peers = lstate.lookup('peers');
+          let nextIndex = peerId => peers.index(peerId).lookup('nextIndex').value;
+          let matchIndex = peerId => peers.index(peerId).lookup('matchIndex').value;
+          let nextX = peer => this.x + this.serverLabelWidth + (nextIndex(peer.serverId) - 0.5) * this.columnWidth;
+          let matchX = peer => this.x + this.serverLabelWidth + matchIndex(peer.serverId) * this.columnWidth;
+          updateSel.selectAll('.nextIndex')
+            .attr('x1', peer => nextX(peer))
+            .attr('x2', peer => nextX(peer));
+          updateSel.selectAll('.matchIndex')
+            .attr('cx', peer => matchX(peer));
+        },
+      });
+    }
 
 
     // Log exit
@@ -481,6 +534,21 @@ return {
   bigView: true,
   name: 'RaftView',
   update: function(changes) {
+    currentLeaderId = _.last(
+      _.sortBy(model.vars.get('servers')
+        .map((s, id) => ({server: s, id: id}))
+        .filter(si => si.server.lookup('state').match({
+          Leader: true,
+        })),
+        si => si.server.lookup('currentTerm').value)
+      .map(si => si.id));
+
+  d3.select(svg)
+    .classed({
+      hasLeader: currentLeaderId !== undefined,
+      noLeader: currentLeaderId === undefined,
+    });
+
     servers.draw(serversG, changes);
     messages.draw(messagesG, changes);
     logs.draw(logsG, changes);
