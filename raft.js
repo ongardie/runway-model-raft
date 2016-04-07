@@ -62,15 +62,6 @@ d3.select('head').append('style')
       .server .serverbg {
         stroke: black;
       }
-      .server.follower .serverbg {
-        fill: gray;
-      }
-      .server.candidate .serverbg {
-        fill: #aa6666;
-      }
-      .server.leader .serverbg {
-        fill: #00aa00;
-      }
       .server g.votes {
         visibility: hidden;
       }
@@ -87,7 +78,6 @@ d3.select('head').append('style')
         stroke: gray;
       }
       .logs .entry rect {
-        fill: #bcff29;
         stroke: black;
         stroke-width: 8;
       }
@@ -102,6 +92,8 @@ let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let electionTimeout = 100000;
 let ringLayout = new Circle(250, 500, 200);
+
+let termColor = d3.scale.category10();
 
 // Wraps the model's Server Record with additional information for drawing
 class Server {
@@ -193,6 +185,8 @@ class Servers {
           Candidate: 'candidate',
           Leader: 'leader',
         })));
+    updateG.select('.serverbg')
+      .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
     updateG.select('path.timeout')
       .attr('d', s => s.timeoutArc());
     updateG.select('text')
@@ -353,7 +347,7 @@ class Logs {
     enterSel.append('text')
       .attr('class', 'index')
       .attr('x', (index, i) => this.x + this.serverLabelWidth + i * this.columnWidth)
-      .attr('y', this.y)
+      .attr('y', this.y + .8 * this.indexHeight)
       .style('font-size', 60)
       .text(index => index);
   }
@@ -422,6 +416,8 @@ class Logs {
         (entry.server.serverVar.lookup('commitIndex').value >= entry.index
           ? 'committed'
           : 'uncommitted')));
+    entriesUpdateSel.select('rect')
+      .style('fill', entry => termColor(entry.entry.lookup('term').value));
     entriesUpdateSel.select('text')
       .text(entry => entry.entry.lookup('term').toString());
     entriesUpdateSel.exit().remove();
