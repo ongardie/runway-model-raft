@@ -1,6 +1,7 @@
 "use strict";
 
 let d3 = require('d3');
+let Changesets = require('Changesets');
 let _ = require('lodash');
 
 // Calculates where points on the circumference of a circle lie.
@@ -212,10 +213,9 @@ class Servers {
   }
 
   draw(selection, changes) {
-    if (changes === undefined) {
-      changes = [''];
+    if (!Changesets.affected(changes, ['clock', 'servers'])) {
+      return;
     }
-    //Changesets.affected(changes, `servers[${serverId}]`);
 
     serverData.forEach(s => s.update(controller.workspace.clock));
     let updateG = serversG
@@ -255,10 +255,12 @@ class Servers {
     updateG.attr('class', s => 'server ' + s.stateClasses());
     updateG.select('.serverbg')
       .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
-    updateG.select('path.timeout')
-      .attr('d', s => s.timeoutArc());
     updateG.select('text.term')
       .text(s => s.serverVar.lookup('currentTerm').toString());
+    if (Changesets.affected(changes, 'clock')) {
+      updateG.select('path.timeout')
+        .attr('d', s => s.timeoutArc());
+    }
 
     // Votes
     this.drawVotes(updateG.select('g.votes'));
@@ -332,13 +334,9 @@ class Messages {
   }
 
   draw(selection, changes) {
-    /*
-    Changesets.affected(changes, [
-      'clock',
-      `network[${index}]`,
-    ]);
-    */
-
+    if (!Changesets.affected(changes, ['network', 'clock'])) {
+      return;
+    }
 
     let messageData = model.vars.get('network').map(v =>
       new Message(v).update(controller.workspace.clock));
@@ -446,11 +444,10 @@ class Logs {
   }
 
   draw(selection, changes) {
-    /*
-    Changesets.affected(changes, [
-      'servers',
-    ]);
-    */
+    if (!Changesets.affected(changes, 'servers')) {
+      return;
+    }
+
     let updateSel = logsG
       .selectAll('g.log')
       .data(serverData);
@@ -567,13 +564,14 @@ let logsG = svg
   .append('g')
     .attr('class', 'logs');
 
+let allChanged = [''];
 let servers = new Servers();
-servers.draw(serversG);
+servers.draw(serversG, allChanged);
 let messages = new Messages();
-messages.draw(messagesG);
+messages.draw(messagesG, allChanged);
 let logs = new Logs();
-logs.drawFixed(logsG);
-logs.draw(logsG);
+logs.drawFixed(logsG, allChanged);
+logs.draw(logsG, allChanged);
 
 return {
   bigView: true,
