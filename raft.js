@@ -73,6 +73,9 @@ d3.select('head').append('style')
         fill: black;
       }
 
+      .logs text.serverId.leader {
+        fill: red;
+      }
       .logs .bg rect {
         fill: #dddddd;
         stroke: gray;
@@ -124,6 +127,14 @@ class Server {
       }),
       Follower: model.vars.get('servers').map(s => 'N/A'),
       Leader: model.vars.get('servers').map(s => 'N/A'),
+    });
+  }
+
+  stateClass() {
+    return this.serverVar.lookup('state').match({
+      Follower: 'follower',
+      Candidate: 'candidate',
+      Leader: 'leader',
     });
   }
 
@@ -180,11 +191,7 @@ class Servers {
       .attr('class', 'votes');
 
     // Server update
-    updateG.attr('class', s => ('server ' + s.serverVar.lookup('state').match({
-          Follower: 'follower',
-          Candidate: 'candidate',
-          Leader: 'leader',
-        })));
+    updateG.attr('class', s => 'server ' + s.stateClass());
     updateG.select('.serverbg')
       .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
     updateG.select('path.timeout')
@@ -322,7 +329,7 @@ class Logs {
     this.y = 100;
     this.width = 500;
     this.height = 800;
-    this.serverLabelWidth = 50;
+    this.serverLabelWidth = 90;
     this.indexHeight = 50;
     this.rowHeight = this.height / 8;
     this.columnWidth = .9 * (this.width - this.serverLabelWidth) / numIndexes;
@@ -368,10 +375,11 @@ class Logs {
       .attr('class', 'log');
     enterSel.append('text')
       .attr('class', 'serverId')
+
       .attr('x', (s, i) => this.x)
       .attr('y', (s, i) => this.y + this.indexHeight + (i + .8) * this.rowHeight)
       .style('font-size', 60)
-      .text(s => s.serverId);
+      .text(s => `S${s.serverId}`);
 
     let bg = enterSel.append('g')
       .attr('class', 'bg');
@@ -387,10 +395,12 @@ class Logs {
         .attr('y', si => si.bbox.y)
         .attr('width', si => si.bbox.width)
         .attr('height', si => si.bbox.height);
-    updateSel.append('g')
+    enterSel.append('g')
       .attr('class', 'entries');
 
     // Log update
+    updateSel.select('text.serverId')
+      .attr('class', s => 'serverId ' + s.stateClass());
     let entriesUpdateSel = updateSel.select('g.entries').selectAll('g')
       .data(server => server.serverVar.lookup('log').map((entry, index) => ({
         server: server,
