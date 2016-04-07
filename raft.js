@@ -75,6 +75,12 @@ d3.select('head').append('style')
       .raft .leader.current text.serverId {
         fill: red;
       }
+      .raft .legend {
+        font-size: 40;
+      }
+      .raft .noleader .legend {
+        visibility: hidden;
+      }
 
       .raft .server .serverbg {
         stroke: black;
@@ -409,6 +415,34 @@ class Logs {
       .attr('x', (index, i) => this.x + this.serverLabelWidth + i * this.columnWidth)
       .attr('y', this.y + .8 * this.indexHeight)
       .text(index => index);
+
+    let legend = selection
+      .append('g')
+        .attr('class', 'legend');
+    let legendX = _.round(this.x + this.width / 3, 2);
+    let niY = _.round(this.y + this.indexHeight +
+      (numServers + .5) * this.rowHeight, 2);
+    let miY = _.round(niY + 2/3 * this.rowHeight, 2);
+    legend.append('line')
+      .attr('class', 'nextIndex')
+      .attr('x1', legendX)
+      .attr('x2', legendX)
+      .attr('y1', niY + .2 * this.rowHeight)
+      .attr('y2', niY)
+      .attr('marker-end', markers.ref('arrow'));
+    legend.append('text')
+      .attr('x', legendX + 20)
+      .attr('y', niY + 12)
+      .text('= next index');
+    legend.append('circle')
+      .attr('class', 'matchIndex')
+      .attr('cx', legendX)
+      .attr('cy', miY)
+      .attr('r', 10);
+    legend.append('text')
+      .attr('x', legendX + 20)
+      .attr('y', miY + 12)
+      .text('= match index');
   }
 
   draw(selection, changes) {
