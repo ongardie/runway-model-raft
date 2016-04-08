@@ -32,6 +32,9 @@ class Markers {
     return this.defs.append('marker')
       .attr('id', id);
   }
+  get(id) {
+    return this.defs.select(`marker#${id}`);
+  }
   ref(id) {
     return `url(#${id})`;
   }
@@ -61,7 +64,34 @@ svg = d3.select(svg)
   .append('g');
 
 
+let messageTypes = ['RequestVote', 'AppendEntries'];
+let messageColor = d3.scale.category10().domain(messageTypes);
+let termColor = d3.scale.category10();
+
 let markers = new Markers(svg.append('defs'));
+
+let createArrow = selection =>
+  selection
+    .attr({
+      viewBox: '0 -5 10 10',
+      refX: 5,
+      refY: 0,
+      markerWidth: 4,
+      markerHeight: 4,
+      orient:'auto',
+    })
+    .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('class', 'arrowHead');
+
+markers.append('arrow')
+  .call(createArrow);
+messageTypes.forEach(t => {
+  markers.append(`arrow-${t}`)
+    .call(createArrow)
+    .style('stroke', messageColor(t))
+    .style('fill', messageColor(t));
+});
 
 d3.select('head').append('style')
   .text(`
@@ -97,9 +127,40 @@ d3.select('head').append('style')
         fill: black;
       }
 
-      .raft .message line {
+      .raft .message {
         stroke-width: 4;
         stroke: black;
+        fill: black;
+      }
+      .raft .message.RequestVote {
+        stroke: ${messageColor('RequestVote')};
+        fill: ${messageColor('RequestVote')};
+      }
+      .raft .message.AppendEntries {
+        stroke: ${messageColor('AppendEntries')};
+        fill: ${messageColor('AppendEntries')};
+      }
+      .raft .message line.direction {
+        stroke-width: 5;
+      }
+      .playback .raft .message line.direction {
+        visibility: hidden;
+      }
+      .raft .message line.plus {
+        visibility: hidden;
+      }
+      .raft .message.RequestVote.response circle,
+      .raft .message.AppendEntries.request.empty circle,
+      .raft .message.AppendEntries.response circle {
+        fill: none;
+      }
+      .raft .message.RequestVote.response line.plus.horizontal,
+      .raft .message.AppendEntries.response line.plus.horizontal {
+        visibility: visible;
+      }
+      .raft .message.RequestVote.response.granted line.plus.vertical,
+      .raft .message.AppendEntries.response.success line.plus.vertical {
+        visibility: visible;
       }
 
       .raft .logs .bg rect {
@@ -138,8 +199,6 @@ let serverLabelCircle = new Circle(250, 500, 300);
 // The current leader is defined as the leader of the largest term, or
 // undefined if no leaders. This is its server ID.
 let currentLeaderId = undefined;
-
-let termColor = d3.scale.category10();
 
 // Wraps the model's Server Record with additional information for drawing
 class Server {
@@ -302,6 +361,37 @@ class Message {
       x: 0,
       y: 0,
     };
+
+    this.classes = ['message'];
+    this.messageVar.lookup('payload').match({
+      RequestVoteRequest: r => {
+        this.type = 'RequestVote';
+        this.classes.push(
+          'RequestVote',
+          'request');
+      },
+      RequestVoteResponse: r => {
+        this.type = 'RequestVote';
+        this.classes.push(
+          'RequestVote',
+          'response',
+          r.lookup('granted').toString() === 'True' ? 'granted' : 'denied');
+      },
+      AppendEntriesRequest: r => {
+        this.type = 'AppendEntries';
+        this.classes.push(
+          'AppendEntries',
+          'request',
+          r.lookup('entries').empty() ? 'empty' : 'nonempty');
+      },
+      AppendEntriesResponse: r => {
+        this.type = 'AppendEntries';
+        this.classes.push(
+          'AppendEntries',
+          'response',
+          r.lookup('success').toString() === 'True' ? 'success' : 'fail');
+      },
+    });
   }
   update(clock) {
     let sentAt = this.messageVar.lookup('sentAt').value;
@@ -319,18 +409,7 @@ class Message {
 
 class Messages {
   constructor() {
-    markers.append('arrow')
-      .attr({
-        viewBox: '0 -5 10 10',
-        refX: 5,
-        refY: 0,
-        markerWidth: 4,
-        markerHeight: 4,
-        orient:'auto',
-      })
-      .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
-        .attr('class', 'arrowHead');
+    this.messageRadius = 15;
   }
 
   draw(selection, changes) {
@@ -348,31 +427,54 @@ class Messages {
     let enterSel = updateSel.enter()
       .append('g');
     enterSel.append('circle')
-      .attr('r', 15);
+      .attr('r', this.messageRadius);
     enterSel.append('line')
+      .attr('class', 'direction')
       .attr({
         x1: 0,
+        x2: this.messageRadius * 2,
         y1: 0,
-        x2: 30,
         y2: 0,
-        'marker-end': markers.ref('arrow'),
+      });
+    enterSel.append('line')
+      .attr('class', 'plus horizontal')
+      .attr({
+        x1: -this.messageRadius,
+        x2: this.messageRadius,
+        y1: 0,
+        y2: 0,
+      });
+    enterSel.append('line')
+      .attr('class', 'plus vertical')
+      .attr({
+        x1: 0,
+        x2: 0,
+        y1: -this.messageRadius,
+        y2: this.messageRadius,
       });
 
     // Message update
-    updateSel.attr('class', m => ('message ' + m.messageVar.lookup('payload').match({
-          RequestVoteRequest: 'RequestVote request',
-          RequestVoteResponse: 'RequestVote response',
-          AppendEntriesRequest: 'AppendEntries request',
-          AppendEntriesResponse: 'AppendEntries response',
-        })));
+    updateSel.attr('class', m => m.classes.join(' '));
     updateSel.select('circle')
       .attr('cx', m => m.point.x)
       .attr('cy', m => m.point.y);
-    updateSel.select('line')
+    updateSel.select('line.direction')
+      .attr('marker-end', m => markers.ref(`arrow-${m.type}`))
       .attr('transform', m => new Transform()
+        .translate(this.messageRadius, 0)
         .rotate(m.angle)
         .translate(m.point.x, m.point.y)
         .toString());
+
+    // I tried to do selectAll('line.plus') and had trouble making it work reliably.
+    // This is a little repetitive but works just fine.
+    let plusTransform = m => new Transform()
+        .translate(m.point.x, m.point.y)
+        .toString();
+    updateSel.select('line.plus.horizontal')
+      .attr('transform', plusTransform);
+    updateSel.select('line.plus.vertical')
+      .attr('transform', plusTransform);
 
     // Message exit
     updateSel.exit().remove();
