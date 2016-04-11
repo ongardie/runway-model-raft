@@ -1,6 +1,7 @@
 "use strict";
 
 let d3 = require('d3');
+let colorbrewer = require('colorbrewer');
 let Changesets = require('Changesets');
 let _ = require('lodash');
 
@@ -65,8 +66,8 @@ svg = d3.select(svg)
 
 
 let messageTypes = ['RequestVote', 'AppendEntries'];
-let messageColor = d3.scale.category10().domain(messageTypes);
-let termColor = d3.scale.category10();
+let messageColor = d3.scale.category10().domain(messageTypes).range(colorbrewer.Set2[6]);
+let termColor = d3.scale.category10().range(colorbrewer.Set2[6]);
 
 let markers = new Markers(svg.append('defs'));
 
