@@ -196,10 +196,12 @@ let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let electionTimeout = 100000;
 let ringLayout = new Circle(250, 500, 200);
 let serverLabelCircle = new Circle(250, 500, 300);
+let peersCircle = new Circle(0, 0, 40); // relative to server midpoint
 
 // The current leader is defined as the leader of the largest term, or
 // undefined if no leaders. This is its server ID.
 let currentLeaderId = undefined;
+
 
 // Wraps the model's Server Record with additional information for drawing
 class Server {
@@ -209,7 +211,6 @@ class Server {
     this.frac = (this.serverId - 1) / numServers;
     this.point = ringLayout.at(this.frac);
     this.labelPoint = serverLabelCircle.at(this.frac);
-    this.peersCircle = new Circle(this.point.x, this.point.y, 40);
 
     this.timeoutArc = d3.svg.arc()
       .innerRadius(50)
@@ -287,25 +288,18 @@ class Servers {
       .append('g');
     enterG.append('text')
       .attr('class', 'serverId')
-      .attr('x', s => s.labelPoint.x)
-      .attr('y', s => s.labelPoint.y)
+      .attr('x', s => s.labelPoint.x - s.point.x)
+      .attr('y', s => s.labelPoint.y - s.point.y)
       .style('text-anchor', 'middle')
       .style('dominant-baseline', 'middle')
       .text(s => `S${s.serverId}`);
     enterG.append('circle')
       .attr('class', 'serverbg')
-      .attr('cx', s => s.point.x)
-      .attr('cy', s => s.point.y)
       .attr('r', 50);
     enterG.append('path')
       .attr('class', 'timeout')
-      .attr('transform', s => new Transform()
-        .translate(s.point.x, s.point.y)
-        .toString());
     enterG.append('text')
       .attr('class', 'term')
-      .attr('x', s => s.point.x)
-      .attr('y', s => s.point.y)
       .style({
         'text-anchor': 'middle',
         'dominant-baseline': 'central',
@@ -314,7 +308,11 @@ class Servers {
       .attr('class', 'votes');
 
     // Server update
-    updateG.attr('class', s => 'server ' + s.stateClasses());
+    updateG
+      .attr('transform', s => new Transform()
+        .translate(s.point.x, s.point.y)
+        .toString())
+      .attr('class', s => 'server ' + s.stateClasses());
     updateG.select('.serverbg')
       .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
     updateG.select('text.term')
@@ -333,7 +331,7 @@ class Servers {
       .data(s => s.getVotes().map((vote, i) => ({
         server: s,
         vote: vote,
-        point: s.peersCircle.at(i / numServers),
+        point: peersCircle.at(i / numServers),
       })));
     let enterSel = updateSel.enter();
     enterSel
@@ -457,27 +455,17 @@ class Messages {
       });
 
     // Message update
-    updateSel.attr('class', m => m.classes.join(' '));
-    updateSel.select('circle')
-      .attr('cx', m => m.point.x)
-      .attr('cy', m => m.point.y);
+    updateSel
+      .attr('class', m => m.classes.join(' '))
+      .attr('transform', m => new Transform()
+        .translate(m.point.x, m.point.y)
+        .toString());
     updateSel.select('line.direction')
       .attr('marker-end', m => markers.ref(`arrow-${m.type}`))
       .attr('transform', m => new Transform()
         .translate(this.messageRadius, 0)
         .rotate(m.angle)
-        .translate(m.point.x, m.point.y)
         .toString());
-
-    // I tried to do selectAll('line.plus') and had trouble making it work reliably.
-    // This is a little repetitive but works just fine.
-    let plusTransform = m => new Transform()
-        .translate(m.point.x, m.point.y)
-        .toString();
-    updateSel.select('line.plus.horizontal')
-      .attr('transform', plusTransform);
-    updateSel.select('line.plus.vertical')
-      .attr('transform', plusTransform);
 
     // Message exit
     updateSel.exit().remove();
@@ -500,14 +488,17 @@ class Logs {
 
   entryBBox(serverId, index) {
     return {
-      x: this.x + this.serverLabelWidth + (index - 1) * this.columnWidth,
-      y: this.y + this.indexHeight + (serverId - 1 + .1) * this.rowHeight,
+      x: this.serverLabelWidth + (index - 1) * this.columnWidth,
+      y: this.indexHeight + (serverId - 1 + .1) * this.rowHeight,
       width: this.columnWidth,
       height: .8 * this.rowHeight,
     };
   }
 
   drawFixed(selection) {
+    selection.attr('transform', new Transform()
+      .translate(this.x, this.y)
+      .toString());
     let enterSel = selection
       .append('g')
         .attr('class', 'indexes')
@@ -515,16 +506,16 @@ class Logs {
         .data(this.indexes).enter();
     enterSel.append('text')
       .attr('class', 'index')
-      .attr('x', (index, i) => this.x + this.serverLabelWidth + i * this.columnWidth)
-      .attr('y', this.y)
+      .attr('x', (index, i) => this.serverLabelWidth + i * this.columnWidth)
+      .attr('y', 0)
       .style('dominant-baseline', 'text-before-edge')
       .text(index => index);
 
     let legend = selection
       .append('g')
         .attr('class', 'legend');
-    let legendX = _.round(this.x + this.width / 3, 2);
-    let niY = _.round(this.y + this.indexHeight +
+    let legendX = _.round(this.width / 3, 2);
+    let niY = _.round(this.indexHeight +
       (numServers + .5) * this.rowHeight, 2);
     let miY = _.round(niY + 2/3 * this.rowHeight, 2);
     legend.append('line')
@@ -566,8 +557,8 @@ class Logs {
       .attr('class', 'log');
     enterSel.append('text')
       .attr('class', 'serverId')
-      .attr('x', (s, i) => this.x)
-      .attr('y', (s, i) => this.y + this.indexHeight + (i + .5) * this.rowHeight)
+      .attr('x', 0)
+      .attr('y', (s, i) => this.indexHeight + (i + .5) * this.rowHeight)
       .style('dominant-baseline', 'central')
       .text(s => `S${s.serverId}`);
 
@@ -589,12 +580,12 @@ class Logs {
       .attr('class', 'entries');
     enterSel.append('circle')
       .attr('class', 'matchIndex')
-      .attr('cy', (s, i) => this.y + this.indexHeight + (i + .9) * this.rowHeight)
+      .attr('cy', (s, i) => this.indexHeight + (i + .9) * this.rowHeight)
       .attr('r', 10);
     enterSel.append('line')
       .attr('class', 'nextIndex')
-      .attr('y1', (s, i) => this.y + this.indexHeight + (i + 1.1) * this.rowHeight)
-      .attr('y2', (s, i) => this.y + this.indexHeight + (i + .9) * this.rowHeight)
+      .attr('y1', (s, i) => this.indexHeight + (i + 1.1) * this.rowHeight)
+      .attr('y2', (s, i) => this.indexHeight + (i + .9) * this.rowHeight)
       .attr('marker-end', markers.ref('arrow'));
 
     // Log update
@@ -637,8 +628,8 @@ class Logs {
           let peers = lstate.lookup('peers');
           let nextIndex = peerId => peers.index(peerId).lookup('nextIndex').value;
           let matchIndex = peerId => peers.index(peerId).lookup('matchIndex').value;
-          let nextX = peer => this.x + this.serverLabelWidth + (nextIndex(peer.serverId) - 0.5) * this.columnWidth;
-          let matchX = peer => this.x + this.serverLabelWidth + matchIndex(peer.serverId) * this.columnWidth;
+          let nextX = peer => this.serverLabelWidth + (nextIndex(peer.serverId) - 0.5) * this.columnWidth;
+          let matchX = peer => this.serverLabelWidth + matchIndex(peer.serverId) * this.columnWidth;
           updateSel.selectAll('.nextIndex')
             .attr('x1', peer => nextX(peer))
             .attr('x2', peer => nextX(peer));
