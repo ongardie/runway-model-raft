@@ -288,8 +288,9 @@ class Servers {
     enterG.append('text')
       .attr('class', 'serverId')
       .attr('x', s => s.labelPoint.x)
-      .attr('y', s => s.labelPoint.y + 30)
+      .attr('y', s => s.labelPoint.y)
       .style('text-anchor', 'middle')
+      .style('dominant-baseline', 'middle')
       .text(s => `S${s.serverId}`);
     enterG.append('circle')
       .attr('class', 'serverbg')
@@ -304,9 +305,10 @@ class Servers {
     enterG.append('text')
       .attr('class', 'term')
       .attr('x', s => s.point.x)
-      .attr('y', s => s.point.y + 30)
+      .attr('y', s => s.point.y)
       .style({
         'text-anchor': 'middle',
+        'dominant-baseline': 'central',
       });
     enterG.append('g')
       .attr('class', 'votes');
@@ -490,7 +492,7 @@ class Logs {
     this.width = 500;
     this.height = 800;
     this.serverLabelWidth = 90;
-    this.indexHeight = 50;
+    this.indexHeight = 60;
     this.rowHeight = this.height / 8;
     this.columnWidth = .9 * (this.width - this.serverLabelWidth) / numIndexes;
     this.indexes = _.range(numIndexes).map(i => i + 1);
@@ -514,7 +516,8 @@ class Logs {
     enterSel.append('text')
       .attr('class', 'index')
       .attr('x', (index, i) => this.x + this.serverLabelWidth + i * this.columnWidth)
-      .attr('y', this.y + .8 * this.indexHeight)
+      .attr('y', this.y)
+      .style('dominant-baseline', 'text-before-edge')
       .text(index => index);
 
     let legend = selection
@@ -533,7 +536,8 @@ class Logs {
       .attr('marker-end', markers.ref('arrow'));
     legend.append('text')
       .attr('x', legendX + 20)
-      .attr('y', niY + 12)
+      .attr('y', niY)
+      .style('dominant-baseline', 'central')
       .text('= next index');
     legend.append('circle')
       .attr('class', 'matchIndex')
@@ -542,7 +546,8 @@ class Logs {
       .attr('r', 10);
     legend.append('text')
       .attr('x', legendX + 20)
-      .attr('y', miY + 12)
+      .attr('y', miY)
+      .style('dominant-baseline', 'central')
       .text('= match index');
   }
 
@@ -562,7 +567,8 @@ class Logs {
     enterSel.append('text')
       .attr('class', 'serverId')
       .attr('x', (s, i) => this.x)
-      .attr('y', (s, i) => this.y + this.indexHeight + (i + .8) * this.rowHeight)
+      .attr('y', (s, i) => this.y + this.indexHeight + (i + .5) * this.rowHeight)
+      .style('dominant-baseline', 'central')
       .text(s => `S${s.serverId}`);
 
     let bg = enterSel.append('g')
@@ -609,10 +615,10 @@ class Logs {
         .attr('width', entry => entry.bbox.width)
         .attr('height', entry => entry.bbox.height);
     entriesEnterSel.append('text')
-        .attr('x', entry => entry.bbox.x)
-        .attr('y', entry => entry.bbox.y + .8 * entry.bbox.height)
-        .attr('width', entry => entry.bbox.width)
-        .attr('height', entry => entry.bbox.height)
+        .attr('x', entry => entry.bbox.x + .5 * entry.bbox.width)
+        .attr('y', entry => entry.bbox.y + .5 * entry.bbox.height)
+        .style('text-anchor', 'middle')
+        .style('dominant-baseline', 'central');
     entriesUpdateSel
       .attr('class', entry => ('entry ' +
         (entry.server.serverVar.lookup('commitIndex').value >= entry.index
