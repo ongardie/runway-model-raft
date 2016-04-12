@@ -145,10 +145,12 @@ svg = d3.select(svg)
   .classed('raft', true)
   .append('g');
 
+let rotate = (array, n) => array.slice(n).concat(array.slice(0, n));
+window.rotate = rotate;
 
 let messageTypes = ['RequestVote', 'AppendEntries'];
 let messageColor = d3.scale.category10().domain(messageTypes).range(colorbrewer.Set2[6]);
-let termColor = d3.scale.category10().range(colorbrewer.Set2[6]);
+let termColor = d3.scale.category10().range(rotate(colorbrewer.Set2[6], 1));
 
 let markers = new Markers(svg.append('defs'));
 
@@ -195,9 +197,6 @@ d3.select('head').append('style')
         visibility: hidden;
       }
 
-      .raft .server .serverbg {
-        stroke: black;
-      }
       .raft .server g.votes {
         visibility: hidden;
       }
