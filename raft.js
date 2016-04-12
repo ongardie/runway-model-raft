@@ -5,19 +5,25 @@ let colorbrewer = require('colorbrewer');
 let Changesets = require('Changesets');
 let _ = require('lodash');
 
+let radianToAngle = radian => radian / Math.PI * 180;
+let angleToRadian = angle => angle / 180 * Math.PI;
+
 // Calculates where points on the circumference of a circle lie.
+// Angles are measured from the right horizon clockwise.
 class Circle {
   constructor(cx, cy, r) {
     this.cx = cx;
     this.cy = cy;
     this.r = r;
   }
-  at(frac) {
-    let radian = frac * 2 * Math.PI;
+  radian(radian) {
     return {
-      x: _.round(this.cx + this.r * Math.sin(radian), 2),
-      y: _.round(this.cy - this.r * Math.cos(radian), 2),
+      x: _.round(this.cx + this.r * Math.cos(radian), 2),
+      y: _.round(this.cy + this.r * Math.sin(radian), 2),
     };
+  }
+  angle(angle) {
+    return this.radian(angleToRadian(angle));
   }
 }
 
@@ -194,27 +200,30 @@ let model = module.env;
 let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let electionTimeout = 100000;
+let serverRadius = 50;
+let outerServerRadius = serverRadius + 10;
 let ringLayout = new Circle(250, 500, 200);
 let serverLabelCircle = new Circle(250, 500, 300);
-let peersCircle = new Circle(0, 0, 40); // relative to server midpoint
+let peersCircle = new Circle(0, 0, serverRadius - 10); // relative to server midpoint
 
 // The current leader is defined as the leader of the largest term, or
 // undefined if no leaders. This is its server ID.
 let currentLeaderId = undefined;
 
+let serverAngle = serverId => 270 + 360 / numServers * (serverId - 1);
 
 // Wraps the model's Server Record with additional information for drawing
 class Server {
   constructor(serverId, serverVar) {
     this.serverVar = serverVar;
     this.serverId = serverId;
-    this.frac = (this.serverId - 1) / numServers;
-    this.point = ringLayout.at(this.frac);
-    this.labelPoint = serverLabelCircle.at(this.frac);
+    let angle = serverAngle(this.serverId);
+    this.point = ringLayout.angle(angle);
+    this.labelPoint = serverLabelCircle.angle(angle);
 
     this.timeoutArc = d3.svg.arc()
-      .innerRadius(50)
-      .outerRadius(60)
+      .innerRadius(serverRadius)
+      .outerRadius(outerServerRadius)
       .startAngle(0)
       .endAngle(0);
   }
@@ -295,7 +304,7 @@ class Servers {
       .text(s => `S${s.serverId}`);
     enterG.append('circle')
       .attr('class', 'serverbg')
-      .attr('r', 50);
+      .attr('r', serverRadius);
     enterG.append('path')
       .attr('class', 'timeout')
     enterG.append('text')
@@ -331,7 +340,7 @@ class Servers {
       .data(s => s.getVotes().map((vote, i) => ({
         server: s,
         vote: vote,
-        point: peersCircle.at(i / numServers),
+        point: peersCircle.angle(serverAngle(i + 1)),
       })));
     let enterSel = updateSel.enter();
     enterSel
@@ -345,19 +354,20 @@ class Servers {
 
 } // class Servers
 
-let radianToAngle = radian => radian / (2 * Math.PI) * 360;
-
 class Message {
   constructor(messageVar) {
     this.messageVar = messageVar;
-    this.fromPoint = ringLayout.at((messageVar.lookup('from').value - 1) / numServers);
-    this.toPoint = ringLayout.at((messageVar.lookup('to').value - 1) / numServers);
+    this.fromPoint = ringLayout.angle(serverAngle(messageVar.lookup('from').value));
+    this.toPoint = ringLayout.angle(serverAngle(messageVar.lookup('to').value));
     let rise = this.toPoint.y - this.fromPoint.y;
     let run = this.toPoint.x - this.fromPoint.x;
-    this.angle = radianToAngle(Math.atan(rise / run));
-    if (run < 0) {
-      this.angle += 180;
-    }
+    this.angle = radianToAngle(Math.atan2(rise, run));
+    // Adjust fromPoint, toPoint to reach edge of server, not center
+    this.fromPoint = new Circle(this.fromPoint.x, this.fromPoint.y, serverRadius)
+      .angle(this.angle);
+    this.toPoint = new Circle(this.toPoint.x, this.toPoint.y, serverRadius)
+      .angle(this.angle + 180);
+
     this.point = {
       x: 0,
       y: 0,
