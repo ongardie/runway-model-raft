@@ -239,14 +239,27 @@ class Server {
           return 'noreply';
         }
       }),
+      Offline:  model.vars.get('servers').map(s => 'N/A'),
       Follower: model.vars.get('servers').map(s => 'N/A'),
-      Leader: model.vars.get('servers').map(s => 'N/A'),
+      Leader:   model.vars.get('servers').map(s => 'N/A'),
+    });
+  }
+
+  isOffline() {
+    return this.serverVar.lookup('state').match({
+      Offline: true,
+      Follower: false,
+      Candidate: false,
+      Leader: false,
     });
   }
 
   stateClasses() {
     let classes = [];
     this.serverVar.lookup('state').match({
+      Offline: () => {
+        classes.push('offline');
+      },
       Follower: () => {
         classes.push('follower');
       },
@@ -266,10 +279,13 @@ class Server {
   }
 
   update(clock) {
-    let timeoutFrac = ((this.serverVar.lookup('timeoutAt').value - clock) /
-       (electionTimeout * 2));
+    let timeoutFrac = _.clamp(
+      (this.serverVar.lookup('timeoutAt').value - clock) /
+      (electionTimeout * 2),
+      0, 1);
     this.serverVar.lookup('state').match({
-      Leader: () => { timeoutFrac = 1; },
+      Offline: () => { timeoutFrac = 0; },
+      Leader:  () => { timeoutFrac = 1; },
     });
     this.timeoutArc.endAngle(2 * Math.PI * timeoutFrac);
     return this;
@@ -323,7 +339,9 @@ class Servers {
         .toString())
       .attr('class', s => 'server ' + s.stateClasses());
     updateG.select('.serverbg')
-      .style('fill', s => termColor(s.serverVar.lookup('currentTerm').value));
+      .style('fill', s => s.isOffline()
+        ? '#aaaaaa'
+        : termColor(s.serverVar.lookup('currentTerm').value));
     updateG.select('text.term')
       .text(s => s.serverVar.lookup('currentTerm').toString());
     if (Changesets.affected(changes, 'clock')) {
