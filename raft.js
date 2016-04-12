@@ -64,7 +64,82 @@ class Transform {
   }
 }
 
+class Menu {
+  constructor(namespace, controller, model) {
+    this.namespace = namespace;
+    this.controller = controller;
+    this.model = model;
+
+    d3.select(window).on(`click.${namespace}menus`, () => this.closeAll());
+    this.parentSel = d3.select('body')
+      .append('div');
+    this.menuSel = this.parentSel
+        .append('ul')
+          .attr('id', 'context-menu')
+          .attr('class', 'dropdown-menu');
+  }
+
+  open(actions, event) {
+    if (event === undefined) {
+      event = d3.event;
+    }
+    event.stopPropagation();
+    this.closeAll();
+    this.parentSel
+      .classed('open', true);
+    this.menuSel
+      .style('top', event.pageY)
+      .style('left', event.pageX);
+    let defaultContext = {
+      clock: this.controller.workspace.clock,
+      async: true,
+    };
+    actions.forEach(action => {
+      if (action.context === undefined) {
+        action.context = defaultContext;
+      }
+      if (action.action === undefined) {
+        action.action = () => {
+          this.model.rules.get(action.rule).fire(action.args, action.context);
+        };
+      }
+      if (action.disabled === undefined) {
+        action.disabled = Changesets.empty(
+          this.controller.workspace.wouldChangeState(action.action));
+      }
+      if (action.label === undefined) {
+        action.label = action.rule;
+      }
+      this.menuSel
+        .append('li')
+          .classed('disabled', action.disabled)
+          .append('a')
+            .classed('clickable', true)
+            .on('click', () => {
+              this.closeAll();
+              controller.workspace.tryChangeState(action.action);
+            })
+            .text(action.label);
+    });
+  }
+
+  closeAll() {
+    this.parentSel
+      .classed('open', false);
+    this.menuSel
+      .selectAll('li')
+      .remove();
+  }
+
+  destroy() {
+    this.parentSel.remove();
+  }
+}
+
 let View = function(controller, svg, module) {
+
+let model = module.env;
+let menu = new Menu('raft', controller, model);
 
 svg = d3.select(svg)
   .classed('raft', true)
@@ -159,7 +234,7 @@ d3.select('head').append('style')
       .raft .message.RequestVote.response circle,
       .raft .message.AppendEntries.request.empty circle,
       .raft .message.AppendEntries.response circle {
-        fill: none;
+        fill-opacity: 0;
       }
       .raft .message.RequestVote.response line.plus.horizontal,
       .raft .message.AppendEntries.response line.plus.horizontal {
@@ -194,8 +269,6 @@ d3.select('head').append('style')
         visibility: hidden;
       }
   `);
-
-let model = module.env;
 
 let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
@@ -331,13 +404,34 @@ class Servers {
       });
     enterG.append('g')
       .attr('class', 'votes');
+    enterG.on('click', s => {
+      menu.open([
+        {
+          rule: 'shutdown',
+          args: s.serverId,
+        },
+        {
+          rule: 'startup',
+          args: s.serverId,
+        },
+        {
+          rule: 'timeout',
+          args: s.serverId,
+        },
+        {
+          label: 'client request',
+          rule: 'clientRequest',
+          args: s.serverId,
+        },
+      ]);
+    });
 
     // Server update
     updateG
       .attr('transform', s => new Transform()
         .translate(s.point.x, s.point.y)
         .toString())
-      .attr('class', s => 'server ' + s.stateClasses());
+      .attr('class', s => 'server clickable ' + s.stateClasses());
     updateG.select('.serverbg')
       .style('fill', s => s.isOffline()
         ? '#aaaaaa'
@@ -391,7 +485,7 @@ class Message {
       y: 0,
     };
 
-    this.classes = ['message'];
+    this.classes = ['message', 'clickable'];
     this.messageVar.lookup('payload').match({
       RequestVoteRequest: r => {
         this.type = 'RequestVote';
@@ -455,6 +549,21 @@ class Messages {
     // Message enter
     let enterSel = updateSel.enter()
       .append('g');
+    enterSel
+      .on('click', (m, i) => {
+        menu.open([
+          {
+            label: 'drop',
+            rule: 'dropMessage',
+            args: i,
+          },
+          {
+            label: 'duplicate',
+            rule: 'duplicateMessage',
+            args: i,
+          },
+        ]);
+      });
     enterSel.append('circle')
       .attr('r', this.messageRadius);
     enterSel.append('line')
