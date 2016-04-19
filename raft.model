@@ -122,32 +122,71 @@ function sendMessage(message: Message) {
   push(network, message);
 }
 
-// initialization
-for server in servers {
-  server.timeoutAt = makeElectionTimeout();
+function init() {
+  for server in servers {
+    server.timeoutAt = makeElectionTimeout();
+  }
 }
+
+// initialization
+init();
 
 /*
 rule startOver {
   for server in servers {
     if server.currentTerm == 9 || full(server.log) {
       reset;
+      init();
     }
   }
 }
 */
 
+function restart(serverId : ServerId) {
+  servers[serverId].state = Follower;
+  servers[serverId].commitIndex = 0;
+  servers[serverId].timeoutAt = makeElectionTimeout();
+}
+
 external shutdown for server in servers {
   server.state = Offline;
 }
 
-external startup for server in servers {
+external startup for serverId, server in servers {
   if server.state == Offline {
-    server.state = Follower;
-    server.commitIndex = 0;
-    server.timeoutAt = makeElectionTimeout();
+    restart(serverId);
   }
 }
+
+/*
+rule resetOnStableLeader for serverId, server in servers {
+  match server.state {
+    Leader {
+      var stable : Boolean = True;
+      for server2Id, server2 in servers {
+        if serverId != server2Id {
+          if server2.currentTerm != server.currentTerm {
+            stable = False;
+          }
+          match server2.state {
+            Follower {}
+            default { stable = False; }
+          }
+        }
+      }
+      if stable {
+        if True {
+          reset;
+          init();
+        } else {
+          restart(serverId);
+        }
+      }
+    }
+    default {}
+  }
+}
+*/
 
 rule timeout for serverId, server in servers {
   var doTimeout : Boolean;
