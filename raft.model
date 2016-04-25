@@ -93,6 +93,17 @@ type ElectionResult : either {
 };
 var electionHistory : Array<ElectionResult>[StrictTerm];
 
+type Election: record {
+  start: Time,
+  stable: Time,
+};
+var elections: Output<Election>;
+type CurrentElection : either {
+  Started { start: Time },
+  NotStarted,
+};
+var currentElection : CurrentElection;
+
 // Used to check leader completeness property
 type CommittedEntry : record {
   entry: Entry,
@@ -158,35 +169,60 @@ external startup for serverId, server in servers {
   }
 }
 
-/*
-rule resetOnStableLeader for serverId, server in servers {
-  match server.state {
-    Leader {
-      var stable : Boolean = True;
-      for server2Id, server2 in servers {
-        if serverId != server2Id {
-          if server2.currentTerm != server.currentTerm {
-            stable = False;
+function stableLeader() -> Boolean {
+  for serverId, server in servers {
+    match server.state {
+      Leader {
+        var followers : Set<ServerId>[ServerId];
+        push(followers, serverId);
+        for server2Id, server2 in servers {
+          if serverId == server2Id {
+            continue;
           }
           match server2.state {
-            Follower {}
-            default { stable = False; }
+            Offline {}
+            Follower {
+              if server2.currentTerm == server.currentTerm {
+                push(followers, server2Id);
+              } else {
+                return False;
+              }
+            }
+            default {
+              return False;
+            }
           }
         }
+        return quorum(followers);
       }
-      if stable {
-        if True {
+      default {}
+    }
+  }
+  return False;
+}
+
+rule outputOnStableLeader {
+  match currentElection {
+    Started(s) {
+      if stableLeader() {
+        push(elections, Election {
+          start: s.start,
+          stable: later(0),
+        });
+        if False {
           reset;
           init();
-        } else {
-          restart(serverId);
         }
+        currentElection = NotStarted;
       }
     }
-    default {}
+    NotStarted {
+      if !stableLeader() {
+        currentElection = Started { start: later(0) };
+      }
+    }
   }
 }
-*/
 
 rule timeout for serverId, server in servers {
   var doTimeout : Boolean;

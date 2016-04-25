@@ -809,6 +809,10 @@ let logs = new Logs();
 logs.drawFixed(logsG, allChanged);
 logs.draw(logsG, allChanged);
 
+let Graph = require('runway-browser/stackedevents.js');
+let graph = controller.mountTab(elem => new Graph(controller, elem, ['stable']), 'graph', 'Graph');
+window.graph = graph;
+
 return {
   bigView: true,
   name: 'RaftView',
@@ -822,7 +826,7 @@ return {
         si => si.server.lookup('currentTerm').value)
       .map(si => si.id));
 
-  svg.classed({
+    svg.classed({
       hasLeader: currentLeaderId !== undefined,
       noLeader: currentLeaderId === undefined,
     });
@@ -830,6 +834,8 @@ return {
     servers.draw(serversG, changes);
     messages.draw(messagesG, changes);
     logs.draw(logsG, changes);
+
+    graph.push(controller.workspace.takeOutput().elections);
   }
 };
 
