@@ -414,7 +414,8 @@ class Servers {
           args: s.serverId,
         },
         {
-          rule: 'timeout',
+          rule: 'startNewElection',
+          label: 'timeout',
           args: s.serverId,
         },
         {

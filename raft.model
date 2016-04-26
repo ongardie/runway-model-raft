@@ -224,7 +224,7 @@ rule outputOnStableLeader {
   }
 }
 
-rule timeout for serverId, server in servers {
+rule startNewElection for serverId, server in servers {
   var doTimeout : Boolean;
   match server.state {
     Offline   { doTimeout = False; }
