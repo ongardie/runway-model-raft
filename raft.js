@@ -1,10 +1,12 @@
 "use strict";
 
-let d3 = require('d3');
 let colorbrewer = require('colorbrewer');
-let Changesets = require('Changesets');
-let Menu = require('runway-browser/lib/menu.js');
+let d3 = require('d3');
 let _ = require('lodash');
+
+let Changesets = require('runway-compiler/lib/changesets.js');
+let Graph = require('runway-browser/lib/stackedevents.js');
+let Menu = require('runway-browser/lib/menu.js');
 
 let radianToAngle = radian => radian / Math.PI * 180;
 let angleToRadian = angle => angle / 180 * Math.PI;
@@ -739,7 +741,6 @@ let logs = new Logs();
 logs.drawFixed(logsG, allChanged);
 logs.draw(logsG, allChanged);
 
-let Graph = require('runway-browser/stackedevents.js');
 let graph = controller.mountTab(elem => new Graph(controller, elem, ['stable']), 'graph', 'Graph');
 window.graph = graph;
 
