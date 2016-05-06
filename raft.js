@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2016 Diego Ongaro.
+ * Licensed under the MIT license.
+ * For full license text, see LICENSE.md file in the repo root or
+ * https://opensource.org/licenses/MIT
+ */
+
 "use strict";
 
 let colorbrewer = require('colorbrewer');

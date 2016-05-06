@@ -1,0 +1,14 @@
+{
+  "name": "runway-model-raft",
+  "version": "0.1.0",
+  "description": "Model of Raft for use in Runway",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ongardie/runway-model-raft.git"
+  },
+  "keywords": [
+    "runway"
+  ],
+  "author": "Diego Ongaro <ongardie@gmail.com>",
+  "license": "MIT"
+}
