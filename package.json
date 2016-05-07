@@ -11,12 +11,13 @@
   ],
   "author": "Diego Ongaro <ongardie@gmail.com>",
   "license": "MIT",
-  "models": [
-    {
-      "model": "raft.model",
+  "models": {
+    "main": {
+      "name": "Raft",
+      "spec": "raft.model",
       "view": "raft.js",
       "clock": "ms",
       "speed": 50
     }
-  ]
+  }
 }
