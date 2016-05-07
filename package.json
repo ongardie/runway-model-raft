@@ -10,5 +10,13 @@
     "runway"
   ],
   "author": "Diego Ongaro <ongardie@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "models": [
+    {
+      "model": "raft.model",
+      "view": "raft.js",
+      "clock": "ms",
+      "speed": 50
+    }
+  ]
 }
