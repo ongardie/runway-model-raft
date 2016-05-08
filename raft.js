@@ -210,11 +210,11 @@ d3.select('head').append('style')
 let numServers = model.vars.get('servers').size();
 let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
 let electionTimeout = 100000;
-let serverRadius = 50;
+let serverRadius = 70;
 let outerServerRadius = serverRadius + 10;
-let ringLayout = new Circle(250, 500, 200);
-let serverLabelCircle = new Circle(250, 500, 300);
-let peersCircle = new Circle(0, 0, serverRadius - 10); // relative to server midpoint
+let ringLayout = new Circle(500, 500, 300);
+let serverLabelCircle = new Circle(500, 500, 420);
+let peersCircle = new Circle(0, 0, serverRadius * .7); // relative to server midpoint
 
 // The current leader is defined as the leader of the largest term, or
 // undefined if no leaders. This is its server ID.
@@ -397,7 +397,7 @@ class Servers {
       .append('circle')
         .attr('cx', v => v.point.x)
         .attr('cy', v => v.point.y)
-        .attr('r', 5);
+        .attr('r', serverRadius * .2);
     updateSel
       .attr('class', v => v.vote);
   } // Servers.drawVotes()
@@ -550,7 +550,7 @@ class Messages {
 
 class Logs {
   constructor() {
-    this.x = 500;
+    this.x = 1000;
     this.y = 100;
     this.width = 500;
     this.height = 800;
@@ -753,6 +753,7 @@ window.graph = graph;
 
 return {
   bigView: true,
+  wideView: true,
   name: 'RaftView',
   update: function(changes) {
     currentLeaderId = _.last(
