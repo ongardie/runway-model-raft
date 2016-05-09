@@ -118,6 +118,8 @@ type CommittedEntry : record {
 };
 var committedEntries : Vector<CommittedEntry>[StrictIndex];
 
+var resetStableLeader : Boolean;
+
 function makeElectionTimeout() -> Time {
   return later(urandomRange(100000, 200000));
 }
@@ -216,8 +218,9 @@ rule outputOnStableLeader {
           start: s.start,
           stable: later(0),
         });
-        if False {
+        if resetStableLeader {
           reset;
+          resetStableLeader = True; // (reset cleared this)
           init();
         }
         currentElection = NotStarted;
