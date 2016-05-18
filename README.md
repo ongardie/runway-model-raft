@@ -1,5 +1,9 @@
 # Model of Raft for Runway
 
+[![screenshot](screenshot.png)](https://runway.systems/?model=github.com/ongardie/runway-model-raft)
+
+[try this model in Runway](https://runway.systems/?model=github.com/ongardie/runway-model-raft)
+
 This is a model of [Raft](https://raft.github.io) for
 [Runway](https://github.com/salesforce/runway-browser). It includes a
 `.model` file describing the state and how it changes, as well as a `.js` file
