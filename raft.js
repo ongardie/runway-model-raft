@@ -80,8 +80,8 @@ let View = function(controller, svg, module) {
   let menu = new Menu('raft', controller, model);
 
   svg = d3.select(svg)
-  .classed('raft', true)
-  .append('g');
+    .classed('raft', true)
+    .append('g');
 
   let rotate = (array, n) => array.slice(n).concat(array.slice(0, n));
   window.rotate = rotate;
@@ -110,102 +110,102 @@ let View = function(controller, svg, module) {
   .call(createArrow);
   messageTypes.forEach(t => {
     markers.append(`arrow-${t}`)
-    .call(createArrow)
-    .style('stroke', messageColor(t))
-    .style('fill', messageColor(t));
+      .call(createArrow)
+      .style('stroke', messageColor(t))
+      .style('fill', messageColor(t));
   });
 
   d3.select('head').append('style')
-  .text(`
-      .raft {
-        font-size: 60;
-      }
-      .raft circle.ring {
-        stroke: black;
-        stroke-width: 5;
-        fill: none;
-      }
-      .raft .leader.current text.serverId {
-        fill: red;
-      }
-      .raft .legend {
-        font-size: 40;
-      }
-      .raft .noleader .legend {
-        visibility: hidden;
-      }
+    .text(`
+        .raft {
+          font-size: 60;
+        }
+        .raft circle.ring {
+          stroke: black;
+          stroke-width: 5;
+          fill: none;
+        }
+        .raft .leader.current text.serverId {
+          fill: red;
+        }
+        .raft .legend {
+          font-size: 40;
+        }
+        .raft .noleader .legend {
+          visibility: hidden;
+        }
 
-      .raft .server g.votes {
-        visibility: hidden;
-      }
-      .raft .server.candidate g.votes {
-        visibility: visible;
-        fill: white;
-      }
-      .raft .server.candidate g.votes .granted {
-        fill: black;
-      }
+        .raft .server g.votes {
+          visibility: hidden;
+        }
+        .raft .server.candidate g.votes {
+          visibility: visible;
+          fill: white;
+        }
+        .raft .server.candidate g.votes .granted {
+          fill: black;
+        }
 
-      .raft .message {
-        stroke-width: 4;
-        stroke: black;
-        fill: black;
-      }
-      .raft .message.RequestVote {
-        stroke: ${messageColor('RequestVote')};
-        fill: ${messageColor('RequestVote')};
-      }
-      .raft .message.AppendEntries {
-        stroke: ${messageColor('AppendEntries')};
-        fill: ${messageColor('AppendEntries')};
-      }
-      .raft .message line.direction {
-        stroke-width: 5;
-      }
-      .playback .raft .message line.direction {
-        visibility: hidden;
-      }
-      .raft .message line.plus {
-        visibility: hidden;
-      }
-      .raft .message.RequestVote.response circle,
-      .raft .message.AppendEntries.request.empty circle,
-      .raft .message.AppendEntries.response circle {
-        fill-opacity: 0;
-      }
-      .raft .message.RequestVote.response line.plus.horizontal,
-      .raft .message.AppendEntries.response line.plus.horizontal {
-        visibility: visible;
-      }
-      .raft .message.RequestVote.response.granted line.plus.vertical,
-      .raft .message.AppendEntries.response.success line.plus.vertical {
-        visibility: visible;
-      }
+        .raft .message {
+          stroke-width: 4;
+          stroke: black;
+          fill: black;
+        }
+        .raft .message.RequestVote {
+          stroke: ${messageColor('RequestVote')};
+          fill: ${messageColor('RequestVote')};
+        }
+        .raft .message.AppendEntries {
+          stroke: ${messageColor('AppendEntries')};
+          fill: ${messageColor('AppendEntries')};
+        }
+        .raft .message line.direction {
+          stroke-width: 5;
+        }
+        .playback .raft .message line.direction {
+          visibility: hidden;
+        }
+        .raft .message line.plus {
+          visibility: hidden;
+        }
+        .raft .message.RequestVote.response circle,
+        .raft .message.AppendEntries.request.empty circle,
+        .raft .message.AppendEntries.response circle {
+          fill-opacity: 0;
+        }
+        .raft .message.RequestVote.response line.plus.horizontal,
+        .raft .message.AppendEntries.response line.plus.horizontal {
+          visibility: visible;
+        }
+        .raft .message.RequestVote.response.granted line.plus.vertical,
+        .raft .message.AppendEntries.response.success line.plus.vertical {
+          visibility: visible;
+        }
 
-      .raft .logs .bg rect {
-        fill: #dddddd;
-        stroke: gray;
-      }
-      .raft .logs .entry rect {
-        stroke: black;
-        stroke-width: 8;
-      }
-      .raft .logs .entry.uncommitted rect {
-        stroke-dasharray: 20, 15;
-      }
+        .raft .logs .bg rect {
+          fill: #dddddd;
+          stroke: gray;
+        }
+        .raft .logs .entry rect {
+          stroke: black;
+          stroke-width: 8;
+        }
+        .raft .logs .entry.uncommitted rect {
+          stroke-dasharray: 20, 15;
+        }
 
-      .raft line.nextIndex {
-        stroke-width: 6;
-        stroke: black;
-      }
+        .raft line.nextIndex {
+          stroke-width: 6;
+          stroke: black;
+        }
 
-      .raft .noLeader .nextIndex,
-      .raft .noLeader .matchIndex,
-      .raft .leader.current .nextIndex,
-      .raft .leader.current .matchIndex {
-        visibility: hidden;
-      }
-  `);
+        .raft .noLeader .nextIndex,
+        .raft .noLeader .matchIndex,
+        .raft .leader.current .nextIndex,
+        .raft .leader.current .matchIndex {
+          visibility: hidden;
+        }
+    `);
 
   let numServers = model.vars.get('servers').size();
   let numIndexes = model.vars.get('servers').index(1).lookup('log').capacity();
@@ -216,13 +216,13 @@ let View = function(controller, svg, module) {
   let serverLabelCircle = new Circle(500, 500, 420);
   let peersCircle = new Circle(0, 0, serverRadius * .7); // relative to server midpoint
 
-// The current leader is defined as the leader of the largest term, or
-// undefined if no leaders. This is its server ID.
+  // The current leader is defined as the leader of the largest term, or
+  // undefined if no leaders. This is its server ID.
   let currentLeaderId = undefined;
 
   let serverAngle = serverId => 270 + 360 / numServers * (serverId - 1);
 
-// Wraps the model's Server Record with additional information for drawing
+  // Wraps the model's Server Record with additional information for drawing
   class Server {
     constructor(serverId, serverVar) {
       this.serverVar = serverVar;
@@ -232,10 +232,10 @@ let View = function(controller, svg, module) {
       this.labelPoint = serverLabelCircle.angle(angle);
 
       this.timeoutArc = d3.svg.arc()
-      .innerRadius(serverRadius)
-      .outerRadius(outerServerRadius)
-      .startAngle(0)
-      .endAngle(0);
+        .innerRadius(serverRadius)
+        .outerRadius(outerServerRadius)
+        .startAngle(0)
+        .endAngle(0);
     }
 
     getVotes() {
@@ -290,9 +290,9 @@ let View = function(controller, svg, module) {
 
     update(clock) {
       let timeoutFrac = _.clamp(
-      (this.serverVar.lookup('timeoutAt').value - clock) /
-      (electionTimeout * 2),
-      0, 1);
+        (this.serverVar.lookup('timeoutAt').value - clock) /
+        (electionTimeout * 2),
+        0, 1);
       this.serverVar.lookup('state').match({
         Offline: () => { timeoutFrac = 0; },
         Leader:  () => { timeoutFrac = 1; },
@@ -300,14 +300,11 @@ let View = function(controller, svg, module) {
       this.timeoutArc.endAngle(2 * Math.PI * timeoutFrac);
       return this;
     }
-}
+  } // class Server
 
   let serverData = model.vars.get('servers').map((v, id) => new Server(id, v));
 
   class Servers {
-    constructor() {
-    }
-
     draw(selection, changes) {
       if (!Changesets.affected(changes, ['clock', 'servers'])) {
         return;
@@ -315,32 +312,32 @@ let View = function(controller, svg, module) {
 
       serverData.forEach(s => s.update(controller.workspace.clock));
       let updateG = serversG
-      .selectAll('g.server')
-      .data(serverData);
+        .selectAll('g.server')
+        .data(serverData);
 
-    // Server enter
+      // Server enter
       let enterG = updateG.enter()
-      .append('g');
+        .append('g');
       enterG.append('text')
-      .attr('class', 'serverId')
-      .attr('x', s => s.labelPoint.x - s.point.x)
-      .attr('y', s => s.labelPoint.y - s.point.y)
-      .style('text-anchor', 'middle')
-      .style('dominant-baseline', 'middle')
-      .text(s => `S${s.serverId}`);
+        .attr('class', 'serverId')
+        .attr('x', s => s.labelPoint.x - s.point.x)
+        .attr('y', s => s.labelPoint.y - s.point.y)
+        .style('text-anchor', 'middle')
+        .style('dominant-baseline', 'middle')
+        .text(s => `S${s.serverId}`);
       enterG.append('circle')
-      .attr('class', 'serverbg')
-      .attr('r', serverRadius);
+        .attr('class', 'serverbg')
+        .attr('r', serverRadius);
       enterG.append('path')
-      .attr('class', 'timeout');
+        .attr('class', 'timeout');
       enterG.append('text')
-      .attr('class', 'term')
-      .style({
-        'text-anchor': 'middle',
-        'dominant-baseline': 'central',
-      });
+        .attr('class', 'term')
+        .style({
+          'text-anchor': 'middle',
+          'dominant-baseline': 'central',
+        });
       enterG.append('g')
-      .attr('class', 'votes');
+        .attr('class', 'votes');
       enterG.on('click', s => {
         menu.open([
           {
@@ -364,42 +361,42 @@ let View = function(controller, svg, module) {
         ]);
       });
 
-    // Server update
+      // Server update
       updateG
-      .attr('transform', s => new Transform()
-        .translate(s.point.x, s.point.y)
-        .toString())
-      .attr('class', s => 'server clickable ' + s.stateClasses());
+        .attr('transform', s => new Transform()
+          .translate(s.point.x, s.point.y)
+          .toString())
+        .attr('class', s => 'server clickable ' + s.stateClasses());
       updateG.select('.serverbg')
-      .style('fill', s => s.isOffline()
-        ? '#aaaaaa'
-        : termColor(s.serverVar.lookup('currentTerm').value));
+        .style('fill', s => s.isOffline()
+          ? '#aaaaaa'
+          : termColor(s.serverVar.lookup('currentTerm').value));
       updateG.select('text.term')
-      .text(s => s.serverVar.lookup('currentTerm').toString());
+        .text(s => s.serverVar.lookup('currentTerm').toString());
       if (Changesets.affected(changes, 'clock')) {
         updateG.select('path.timeout')
-        .attr('d', s => s.timeoutArc());
+          .attr('d', s => s.timeoutArc());
       }
 
-    // Votes
+      // Votes
       this.drawVotes(updateG.select('g.votes'));
     } // Servers.draw()
 
     drawVotes(votesSel) {
       let updateSel = votesSel.selectAll('circle')
-      .data(s => s.getVotes().map((vote, i) => ({
-        server: s,
-        vote: vote,
-        point: peersCircle.angle(serverAngle(i + 1)),
-      })));
+        .data(s => s.getVotes().map((vote, i) => ({
+          server: s,
+          vote: vote,
+          point: peersCircle.angle(serverAngle(i + 1)),
+        })));
       let enterSel = updateSel.enter();
       enterSel
-      .append('circle')
-        .attr('cx', v => v.point.x)
-        .attr('cy', v => v.point.y)
-        .attr('r', serverRadius * .2);
+        .append('circle')
+          .attr('cx', v => v.point.x)
+          .attr('cy', v => v.point.y)
+          .attr('r', serverRadius * .2);
       updateSel
-      .attr('class', v => v.vote);
+        .attr('class', v => v.vote);
     } // Servers.drawVotes()
 
 } // class Servers
@@ -412,11 +409,11 @@ let View = function(controller, svg, module) {
       let rise = this.toPoint.y - this.fromPoint.y;
       let run = this.toPoint.x - this.fromPoint.x;
       this.angle = radianToAngle(Math.atan2(rise, run));
-    // Adjust fromPoint, toPoint to reach edge of server, not center
+      // Adjust fromPoint, toPoint to reach edge of server, not center
       this.fromPoint = new Circle(this.fromPoint.x, this.fromPoint.y, serverRadius)
-      .angle(this.angle);
+        .angle(this.angle);
       this.toPoint = new Circle(this.toPoint.x, this.toPoint.y, serverRadius)
-      .angle(this.angle + 180);
+        .angle(this.angle + 180);
 
       this.point = {
         x: 0,
@@ -428,32 +425,33 @@ let View = function(controller, svg, module) {
         RequestVoteRequest: r => {
           this.type = 'RequestVote';
           this.classes.push(
-          'RequestVote',
-          'request');
+            'RequestVote',
+            'request');
         },
         RequestVoteResponse: r => {
           this.type = 'RequestVote';
           this.classes.push(
-          'RequestVote',
-          'response',
-          r.lookup('granted').toString() === 'True' ? 'granted' : 'denied');
+            'RequestVote',
+            'response',
+            r.lookup('granted').toString() === 'True' ? 'granted' : 'denied');
         },
         AppendEntriesRequest: r => {
           this.type = 'AppendEntries';
           this.classes.push(
-          'AppendEntries',
-          'request',
-          r.lookup('entries').empty() ? 'empty' : 'nonempty');
+            'AppendEntries',
+            'request',
+            r.lookup('entries').empty() ? 'empty' : 'nonempty');
         },
         AppendEntriesResponse: r => {
           this.type = 'AppendEntries';
           this.classes.push(
-          'AppendEntries',
-          'response',
-          r.lookup('success').toString() === 'True' ? 'success' : 'fail');
+            'AppendEntries',
+            'response',
+            r.lookup('success').toString() === 'True' ? 'success' : 'fail');
         },
       });
     }
+
     update(clock) {
       let sentAt = this.messageVar.lookup('sentAt').value;
       let deliverAt = this.messageVar.lookup('deliverAt').value;
@@ -466,7 +464,7 @@ let View = function(controller, svg, module) {
       this.point.y = _.round(this.fromPoint.y + (this.toPoint.y - this.fromPoint.y) * frac, 2);
       return this;
     }
-}
+  } // class Message
 
   class Messages {
     constructor() {
@@ -481,72 +479,71 @@ let View = function(controller, svg, module) {
       let messageData = model.vars.get('network').map(v =>
       new Message(v).update(controller.workspace.clock));
       let updateSel = messagesG
-      .selectAll('g.message')
-      .data(messageData);
+        .selectAll('g.message')
+        .data(messageData);
 
-    // Message enter
+      // Message enter
       let enterSel = updateSel.enter()
-      .append('g');
+        .append('g');
       enterSel
-      .on('click', (m, i) => {
-        menu.open([
-          {
-            label: 'drop',
-            rule: 'dropMessage',
-            args: i,
-          },
-          {
-            label: 'duplicate',
-            rule: 'duplicateMessage',
-            args: i,
-          },
-        ]);
-      });
+        .on('click', (m, i) => {
+          menu.open([
+            {
+              label: 'drop',
+              rule: 'dropMessage',
+              args: i,
+            },
+            {
+              label: 'duplicate',
+              rule: 'duplicateMessage',
+              args: i,
+            },
+          ]);
+        });
       enterSel.append('circle')
-      .attr('r', this.messageRadius);
+        .attr('r', this.messageRadius);
       enterSel.append('line')
-      .attr('class', 'direction')
-      .attr({
-        x1: 0,
-        x2: this.messageRadius * 2,
-        y1: 0,
-        y2: 0,
-      });
+        .attr('class', 'direction')
+        .attr({
+          x1: 0,
+          x2: this.messageRadius * 2,
+          y1: 0,
+          y2: 0,
+        });
       enterSel.append('line')
-      .attr('class', 'plus horizontal')
-      .attr({
-        x1: -this.messageRadius,
-        x2: this.messageRadius,
-        y1: 0,
-        y2: 0,
-      });
+        .attr('class', 'plus horizontal')
+        .attr({
+          x1: -this.messageRadius,
+          x2: this.messageRadius,
+          y1: 0,
+          y2: 0,
+        });
       enterSel.append('line')
-      .attr('class', 'plus vertical')
-      .attr({
-        x1: 0,
-        x2: 0,
-        y1: -this.messageRadius,
-        y2: this.messageRadius,
-      });
+        .attr('class', 'plus vertical')
+        .attr({
+          x1: 0,
+          x2: 0,
+          y1: -this.messageRadius,
+          y2: this.messageRadius,
+        });
 
-    // Message update
+      // Message update
       updateSel
-      .attr('class', m => m.classes.join(' '))
-      .attr('transform', m => new Transform()
-        .translate(m.point.x, m.point.y)
-        .toString());
+        .attr('class', m => m.classes.join(' '))
+        .attr('transform', m => new Transform()
+          .translate(m.point.x, m.point.y)
+          .toString());
       updateSel.select('line.direction')
-      .attr('marker-end', m => markers.ref(`arrow-${m.type}`))
-      .attr('transform', m => new Transform()
-        .translate(this.messageRadius, 0)
-        .rotate(m.angle)
-        .toString());
+        .attr('marker-end', m => markers.ref(`arrow-${m.type}`))
+        .attr('transform', m => new Transform()
+          .translate(this.messageRadius, 0)
+          .rotate(m.angle)
+          .toString());
 
-    // Message exit
+      // Message exit
       updateSel.exit().remove();
-
     } // Messages.draw()
-}
+  } // class Messages
 
   class Logs {
     constructor() {
@@ -572,49 +569,49 @@ let View = function(controller, svg, module) {
 
     drawFixed(selection) {
       selection.attr('transform', new Transform()
-      .translate(this.x, this.y)
-      .toString());
+        .translate(this.x, this.y)
+        .toString());
       let enterSel = selection
-      .append('g')
-        .attr('class', 'indexes')
-        .selectAll('text')
-        .data(this.indexes).enter();
+        .append('g')
+          .attr('class', 'indexes')
+          .selectAll('text')
+          .data(this.indexes).enter();
       enterSel.append('text')
-      .attr('class', 'index')
-      .attr('x', (index, i) => this.serverLabelWidth + i * this.columnWidth)
-      .attr('y', 0)
-      .style('dominant-baseline', 'text-before-edge')
-      .text(index => index);
+        .attr('class', 'index')
+        .attr('x', (index, i) => this.serverLabelWidth + i * this.columnWidth)
+        .attr('y', 0)
+        .style('dominant-baseline', 'text-before-edge')
+        .text(index => index);
 
       let legend = selection
-      .append('g')
-        .attr('class', 'legend');
+        .append('g')
+          .attr('class', 'legend');
       let legendX = _.round(this.width / 3, 2);
       let niY = _.round(this.indexHeight +
-      (numServers + .5) * this.rowHeight, 2);
+        (numServers + .5) * this.rowHeight, 2);
       let miY = _.round(niY + 2/3 * this.rowHeight, 2);
       legend.append('line')
-      .attr('class', 'nextIndex')
-      .attr('x1', legendX)
-      .attr('x2', legendX)
-      .attr('y1', niY + .2 * this.rowHeight)
-      .attr('y2', niY)
-      .attr('marker-end', markers.ref('arrow'));
+        .attr('class', 'nextIndex')
+        .attr('x1', legendX)
+        .attr('x2', legendX)
+        .attr('y1', niY + .2 * this.rowHeight)
+        .attr('y2', niY)
+        .attr('marker-end', markers.ref('arrow'));
       legend.append('text')
-      .attr('x', legendX + 20)
-      .attr('y', niY)
-      .style('dominant-baseline', 'central')
-      .text('= next index');
+        .attr('x', legendX + 20)
+        .attr('y', niY)
+        .style('dominant-baseline', 'central')
+        .text('= next index');
       legend.append('circle')
-      .attr('class', 'matchIndex')
-      .attr('cx', legendX)
-      .attr('cy', miY)
-      .attr('r', 10);
+        .attr('class', 'matchIndex')
+        .attr('cx', legendX)
+        .attr('cy', miY)
+        .attr('r', 10);
       legend.append('text')
-      .attr('x', legendX + 20)
-      .attr('y', miY)
-      .style('dominant-baseline', 'central')
-      .text('= match index');
+        .attr('x', legendX + 20)
+        .attr('y', miY)
+        .style('dominant-baseline', 'central')
+        .text('= match index');
     }
 
     draw(selection, changes) {
@@ -623,56 +620,56 @@ let View = function(controller, svg, module) {
       }
 
       let updateSel = logsG
-      .selectAll('g.log')
-      .data(serverData);
+        .selectAll('g.log')
+        .data(serverData);
 
-    // Log enter
+      // Log enter
       let enterSel = updateSel.enter()
-      .append('g')
-      .attr('class', 'log');
+        .append('g')
+        .attr('class', 'log');
       enterSel.append('text')
-      .attr('class', 'serverId')
-      .attr('x', 0)
-      .attr('y', (s, i) => this.indexHeight + (i + .5) * this.rowHeight)
-      .style('dominant-baseline', 'central')
-      .text(s => `S${s.serverId}`);
+        .attr('class', 'serverId')
+        .attr('x', 0)
+        .attr('y', (s, i) => this.indexHeight + (i + .5) * this.rowHeight)
+        .style('dominant-baseline', 'central')
+        .text(s => `S${s.serverId}`);
 
       let bg = enterSel.append('g')
-      .attr('class', 'bg');
+        .attr('class', 'bg');
       bg.selectAll('rect')
-      .data(server => this.indexes.map(index => ({
-        server: server,
-        index: index,
-        bbox: this.entryBBox(server.serverId, index),
-      })))
-      .enter()
-      .append('rect')
-        .attr('x', si => si.bbox.x)
-        .attr('y', si => si.bbox.y)
-        .attr('width', si => si.bbox.width)
-        .attr('height', si => si.bbox.height);
+        .data(server => this.indexes.map(index => ({
+          server: server,
+          index: index,
+          bbox: this.entryBBox(server.serverId, index),
+        })))
+        .enter()
+        .append('rect')
+          .attr('x', si => si.bbox.x)
+          .attr('y', si => si.bbox.y)
+          .attr('width', si => si.bbox.width)
+          .attr('height', si => si.bbox.height);
       enterSel.append('g')
-      .attr('class', 'entries');
+        .attr('class', 'entries');
       enterSel.append('circle')
-      .attr('class', 'matchIndex')
-      .attr('cy', (s, i) => this.indexHeight + (i + .9) * this.rowHeight)
-      .attr('r', 10);
+        .attr('class', 'matchIndex')
+        .attr('cy', (s, i) => this.indexHeight + (i + .9) * this.rowHeight)
+        .attr('r', 10);
       enterSel.append('line')
-      .attr('class', 'nextIndex')
-      .attr('y1', (s, i) => this.indexHeight + (i + 1.1) * this.rowHeight)
-      .attr('y2', (s, i) => this.indexHeight + (i + .9) * this.rowHeight)
-      .attr('marker-end', markers.ref('arrow'));
+        .attr('class', 'nextIndex')
+        .attr('y1', (s, i) => this.indexHeight + (i + 1.1) * this.rowHeight)
+        .attr('y2', (s, i) => this.indexHeight + (i + .9) * this.rowHeight)
+        .attr('marker-end', markers.ref('arrow'));
 
-    // Log update
+      // Log update
       updateSel
-      .attr('class', s => 'log ' + s.stateClasses());
+        .attr('class', s => 'log ' + s.stateClasses());
       let entriesUpdateSel = updateSel.select('g.entries').selectAll('g')
-      .data(server => server.serverVar.lookup('log').map((entry, index) => ({
-        server: server,
-        entry: entry,
-        index: index,
-        bbox: this.entryBBox(server.serverId, index),
-      })));
+        .data(server => server.serverVar.lookup('log').map((entry, index) => ({
+          server: server,
+          entry: entry,
+          index: index,
+          bbox: this.entryBBox(server.serverId, index),
+        })));
       let entriesEnterSel = entriesUpdateSel.enter()
         .append('g');
       entriesEnterSel.append('rect')
@@ -686,14 +683,14 @@ let View = function(controller, svg, module) {
         .style('text-anchor', 'middle')
         .style('dominant-baseline', 'central');
       entriesUpdateSel
-      .attr('class', entry => ('entry ' +
-        (entry.server.serverVar.lookup('commitIndex').value >= entry.index
-          ? 'committed'
-          : 'uncommitted')));
+        .attr('class', entry => ('entry ' +
+          (entry.server.serverVar.lookup('commitIndex').value >= entry.index
+            ? 'committed'
+            : 'uncommitted')));
       entriesUpdateSel.select('rect')
-      .style('fill', entry => termColor(entry.entry.lookup('term').value));
+        .style('fill', entry => termColor(entry.entry.lookup('term').value));
       entriesUpdateSel.select('text')
-      .text(entry => entry.entry.lookup('term').toString());
+        .text(entry => entry.entry.lookup('term').toString());
       entriesUpdateSel.exit().remove();
 
       if (currentLeaderId !== undefined) {
@@ -706,38 +703,36 @@ let View = function(controller, svg, module) {
             let nextX = peer => this.serverLabelWidth + (nextIndex(peer.serverId) - 0.5) * this.columnWidth;
             let matchX = peer => this.serverLabelWidth + matchIndex(peer.serverId) * this.columnWidth;
             updateSel.selectAll('.nextIndex')
-            .attr('x1', peer => nextX(peer))
-            .attr('x2', peer => nextX(peer));
+              .attr('x1', peer => nextX(peer))
+              .attr('x2', peer => nextX(peer));
             updateSel.selectAll('.matchIndex')
-            .attr('cx', peer => matchX(peer));
+              .attr('cx', peer => matchX(peer));
           },
         });
       }
 
-
-    // Log exit
+      // Log exit
       updateSel.exit().remove();
-
     } // Logs.draw()
-}
+  } // class Logs
 
   svg.append('circle')
-  .attr('class', 'ring')
-  .attr({
-    cx: ringLayout.cx,
-    cy: ringLayout.cy,
-    r: ringLayout.r,
-  });
+    .attr('class', 'ring')
+    .attr({
+      cx: ringLayout.cx,
+      cy: ringLayout.cy,
+      r: ringLayout.r,
+    });
 
   let serversG = svg
-  .append('g')
-    .attr('class', 'servers');
+    .append('g')
+      .attr('class', 'servers');
   let messagesG = svg
-  .append('g')
-    .attr('class', 'messages');
+    .append('g')
+      .attr('class', 'messages');
   let logsG = svg
-  .append('g')
-    .attr('class', 'logs');
+    .append('g')
+      .attr('class', 'logs');
 
   let allChanged = [''];
   let servers = new Servers();
