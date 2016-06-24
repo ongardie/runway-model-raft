@@ -93,21 +93,21 @@ let View = function(controller, svg, module) {
   let markers = new Markers(svg.append('defs'));
 
   let createArrow = selection =>
-  selection
-    .attr({
-      viewBox: '0 -5 10 10',
-      refX: 5,
-      refY: 0,
-      markerWidth: 4,
-      markerHeight: 4,
-      orient:'auto',
-    })
-    .append('path')
-      .attr('d', 'M0,-5L10,0L0,5')
-      .attr('class', 'arrowHead');
+    selection
+      .attr({
+        viewBox: '0 -5 10 10',
+        refX: 5,
+        refY: 0,
+        markerWidth: 4,
+        markerHeight: 4,
+        orient:'auto',
+      })
+      .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('class', 'arrowHead');
 
   markers.append('arrow')
-  .call(createArrow);
+    .call(createArrow);
   messageTypes.forEach(t => {
     markers.append(`arrow-${t}`)
       .call(createArrow)
