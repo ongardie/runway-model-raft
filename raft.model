@@ -481,14 +481,12 @@ rule handleMessage for message in network {
               }
               Leader { /* ignore */ }
             }
-          } else {
-            if reply.term > servers[to].currentTerm {
+          } else if reply.term > servers[to].currentTerm {
               servers[to].currentTerm = reply.term;
               servers[to].state = Follower;
               servers[to].vote = Available;
-            } else {
-              // stale term: ignore
-            }
+          } else {
+            // stale term: ignore
           }
           remove(network, message);
         } // RequestVoteResponse
@@ -604,14 +602,12 @@ rule handleMessage for message in network {
                 }
               }
             }
+          } else if reply.term > servers[to].currentTerm {
+            servers[to].currentTerm = reply.term;
+            servers[to].state = Follower;
+            servers[to].vote = Available;
           } else {
-            if reply.term > servers[to].currentTerm {
-              servers[to].currentTerm = reply.term;
-              servers[to].state = Follower;
-              servers[to].vote = Available;
-            } else {
-              // stale term: ignore
-            }
+            // stale term: ignore
           }
           remove(network, message);
         } // AppendEntriesResponse
