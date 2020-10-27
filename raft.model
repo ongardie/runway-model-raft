@@ -434,7 +434,7 @@ rule handleMessage for message in network {
   if past(message.deliverAt) {
     var from : ServerId = message.from;
     var to : ServerId = message.to;
-    if servers[message.to].state == Offline  || servers[message.to].disconnected {
+    if servers[to].state == Offline  || servers[from].disconnected || servers[to].disconnected {
       remove(network, message);
     } else {
       match message.payload {
