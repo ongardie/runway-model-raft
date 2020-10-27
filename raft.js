@@ -358,6 +358,16 @@ let View = function(controller, svg, module) {
             rule: 'clientRequest',
             args: s.serverId,
           },
+          {
+            label: 'disconnect from network',
+            rule: 'disconnect',
+            args: s.serverId,
+          },
+          {
+            label: 'connect to network',
+            rule: 'connect',
+            args: s.serverId,
+          },
         ]);
       });
 

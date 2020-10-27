@@ -43,6 +43,7 @@ type Server : record {
   log: Log,
 
   // Volatile state
+  disconnected : Boolean,
   state: either {
     Follower,
     Candidate {
@@ -145,6 +146,7 @@ function sendMessage(message: Message) {
 function init() {
   for server in servers {
     server.timeoutAt = makeElectionTimeout();
+    server.disconnected = False;
   }
 }
 
@@ -176,6 +178,14 @@ external startup for serverId, server in servers {
   if server.state == Offline {
     restart(serverId);
   }
+}
+
+external disconnect for server in servers {
+  server.disconnected = True;
+}
+
+external connect for server in servers {
+  server.disconnected = False;
 }
 
 function stableLeader() -> Boolean {
@@ -424,7 +434,7 @@ rule handleMessage for message in network {
   if past(message.deliverAt) {
     var from : ServerId = message.from;
     var to : ServerId = message.to;
-    if servers[message.to].state == Offline {
+    if servers[message.to].state == Offline  || servers[message.to].disconnected {
       remove(network, message);
     } else {
       match message.payload {
